@@ -163,17 +163,78 @@ export default function StudentPortal({ onTicketGenerated }) {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4 }}
       >
-        <div className="portal-hero-header">
-          <motion.img
-            src="/logo.png"
-            alt="URSP SSG Logo"
-            className="portal-hero-logo"
-            whileHover={{ scale: 1.08, rotate: [0, -5, 5, 0] }}
-            transition={{ duration: 0.5 }}
+        {/* Hero Poster Banner */}
+        <motion.div
+          className="portal-poster-hero"
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.1, duration: 0.5, type: 'spring' }}
+          style={{
+            position: 'relative',
+            overflow: 'hidden',
+            borderRadius: '16px',
+            marginBottom: '16px',
+            boxShadow: '0 12px 35px rgba(0,0,0,0.6)',
+            border: '1.5px solid rgba(255, 209, 0, 0.4)'
+          }}
+        >
+          <img
+            src="/poster.jpg"
+            alt="URSPANTROPIKO Acquaintance Party Poster"
+            className="portal-poster-img"
+            style={{ width: '100%', height: 'auto', maxHeight: '260px', objectFit: 'cover', display: 'block' }}
           />
-          <h1 className="portal-hero-title">URSPantropiko 2026</h1>
-          <p className="portal-hero-slogan">Acquaintance Party &amp; General Assembly</p>
-        </div>
+          <div className="portal-poster-overlay" style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            padding: '16px'
+          }}>
+            <motion.img
+              src="/logo.png"
+              alt="URSP SSG Official Logo"
+              className="portal-hero-logo"
+              whileHover={{ scale: 1.1, rotate: [0, -5, 5, 0] }}
+              style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                border: '2.5px solid #FFD100',
+                boxShadow: '0 0 25px rgba(255, 209, 0, 0.85), 0 6px 20px rgba(0, 0, 0, 0.8)',
+                objectFit: 'contain',
+                background: '#FFF',
+                marginBottom: '6px'
+              }}
+            />
+            <h1 style={{
+              fontFamily: "'Pacifico', cursive",
+              fontSize: '24px',
+              color: '#FFFFFF',
+              textShadow: '0 2px 10px rgba(255, 107, 53, 0.8), 0 0 25px rgba(255, 209, 0, 0.5)',
+              margin: '0 0 4px 0',
+              lineHeight: 1.2,
+              textAlign: 'center'
+            }}>
+              URSP Acquaintance Party
+            </h1>
+            <p style={{
+              fontFamily: "'Fredoka', sans-serif",
+              fontSize: '10px',
+              fontWeight: '700',
+              color: 'rgba(255, 255, 255, 0.9)',
+              textTransform: 'uppercase',
+              letterSpacing: '1px',
+              margin: 0,
+              textAlign: 'center'
+            }}>
+              URSPANTROPIKO: ONE ISLAND, ONE CAMPUS, ONE IDENTITY — RED HAWKS SOARING IN UNITY
+            </p>
+          </div>
+        </motion.div>
 
         <div className="portal-event-strip">
           <div className="event-strip-item">
