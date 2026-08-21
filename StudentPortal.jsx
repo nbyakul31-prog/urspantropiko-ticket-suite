@@ -476,16 +476,16 @@ export default function StudentPortal({ onTicketGenerated }) {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                background: selectedCollegeObj.bgColor,
-                color: selectedCollegeObj.textColor,
+                background: selectedCollegeObj?.bgColor || '#FEF3C7',
+                color: selectedCollegeObj?.textColor || '#92400E',
                 padding: '4px 14px',
                 borderRadius: '20px',
                 fontWeight: '800',
                 fontSize: '0.82rem',
-                border: `1px solid ${selectedCollegeObj.borderColor}`,
+                border: `1px solid ${selectedCollegeObj?.borderColor || '#FDE68A'}`,
                 marginBottom: '12px'
               }}>
-                {selectedCollegeObj.icon} {ticket.department} ({ticket.year_level})
+                {selectedCollegeObj?.icon || '🎓'} {ticket.department} ({ticket.year_level})
               </div>
 
               <div className="badge-code-display" style={{ fontSize: '1.75rem', fontWeight: '900', color: '#38BDF8', letterSpacing: '1px' }}>
@@ -537,7 +537,7 @@ export default function StudentPortal({ onTicketGenerated }) {
             >
               <motion.button
                 className="portal-btn-primary"
-                onClick={downloadBadge}
+                onClick={handleDownloadBadge}
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
               >
