@@ -3,6 +3,7 @@ import QRCode from 'qrcode.react';
 import html2canvas from 'html2canvas';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './lib/supabase';
+import { sanitizeText, sanitizeStudentId } from './lib/security';
 
 const COLLEGES_DATA = [
   {
@@ -63,16 +64,26 @@ export default function StudentPortal({ onTicketGenerated }) {
     setLoading(true);
     setError(null);
 
+    const cleanStudentId = sanitizeStudentId(studentId);
+    const cleanFullName = sanitizeText(fullName);
+    const cleanSection = sanitizeText(section);
+
+    if (!cleanStudentId || !cleanFullName) {
+      setError('Please provide a valid Student ID and Full Name.');
+      setLoading(false);
+      return;
+    }
+
     const ticketCode = 'TKT-' + Math.floor(10000 + Math.random() * 90000);
 
     const newAttendee = {
       id: 'REG-' + Date.now(),
       ticket_code: ticketCode,
-      student_id: studentId.trim(),
-      full_name: fullName.trim(),
-      program_section: section.trim(),
-      department: department,
-      year_level: yearLevel,
+      student_id: cleanStudentId,
+      full_name: cleanFullName,
+      program_section: cleanSection,
+      department: sanitizeText(department),
+      year_level: sanitizeText(yearLevel),
       payment_status: 'unpaid',
       attendance_status: 'not_attended',
       created_at: new Date().toISOString()

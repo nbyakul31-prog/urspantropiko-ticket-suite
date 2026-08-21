@@ -4,6 +4,7 @@ import AdminDashboard from './AdminDashboard';
 import UsherScanner from './UsherScanner';
 import BackgroundAmbient from './BackgroundAmbient';
 import { supabase } from './lib/supabase';
+import { checkPinRateLimit, recordFailedPinAttempt, resetPinAttempts, sanitizeText } from './lib/security';
 
 const STORAGE_KEY = 'ursp_masterlist_attendees_v4';
 
@@ -127,8 +128,84 @@ export default function App() {
     }
   };
 
-  // Setup Cross-Tab Broadcast Channel & LocalStorage Storage Event Listener
+  // Setup Cross-Tab Broadcast Channel, LocalStorage & Supabase Real-Time Sync
   useEffect(() => {
+    let isMounted = true;
+
+    // 1. Query Supabase Remote DB upon loading (Syncs offline registrations seamlessly)
+    async function syncFromSupabase() {
+      try {
+        if (supabase && typeof supabase.from === 'function') {
+          const { data, error } = await supabase.from('attendees').select('*').order('created_at', { ascending: false });
+          if (!error && Array.isArray(data) && data.length > 0 && isMounted) {
+            setTickets(prev => {
+              const remoteMap = new Map();
+              data.forEach(t => remoteMap.set(t.ticket_code, normalizeTicket(t)));
+              prev.forEach(t => {
+                if (!remoteMap.has(t.ticket_code)) {
+                  remoteMap.set(t.ticket_code, t);
+                }
+              });
+              const merged = Array.from(remoteMap.values());
+              saveStoredTickets(merged);
+              return merged;
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Initial Supabase fetch fallback to local storage:', err);
+      }
+    }
+
+    syncFromSupabase();
+
+    // 2. Supabase Real-Time Cloud Subscription (Push notifications from Vercel to Localhost)
+    let channel = null;
+    try {
+      if (supabase && typeof supabase.channel === 'function') {
+        channel = supabase
+          .channel('public_attendees_live_feed')
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendees' }, payload => {
+            if (payload.new && isMounted) {
+              const newRecord = normalizeTicket(payload.new);
+              setTickets(prev => {
+                if (prev.some(t => t.ticket_code === newRecord.ticket_code)) return prev;
+                const next = [newRecord, ...prev];
+                saveStoredTickets(next);
+                return next;
+              });
+              addLivePing({
+                type: 'registration',
+                title: '🎉 LIVE CLOUD REGISTRATION',
+                message: `${payload.new.full_name} (${payload.new.program_section}) registered via Vercel!`,
+                ticket_code: payload.new.ticket_code,
+                department: payload.new.department
+              });
+            }
+          })
+          .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'attendees' }, payload => {
+            if (payload.old && isMounted) {
+              setTickets(prev => {
+                const next = prev.filter(t => t.ticket_code !== payload.old.ticket_code && t.id !== payload.old.id);
+                saveStoredTickets(next);
+                return next;
+              });
+            }
+          })
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'attendees' }, payload => {
+            if (payload.new && isMounted) {
+              setTickets(prev => {
+                const next = prev.map(t => t.ticket_code === payload.new.ticket_code ? normalizeTicket(payload.new) : t);
+                saveStoredTickets(next);
+                return next;
+              });
+            }
+          })
+          .subscribe();
+      }
+    } catch (err) {}
+
+    // 3. Local Broadcast Channel for cross-tab sync
     let broadcastChannel = null;
     try {
       if (typeof BroadcastChannel !== 'undefined') {
@@ -158,8 +235,12 @@ export default function App() {
     window.addEventListener('storage', handleStorage);
 
     return () => {
+      isMounted = false;
       window.removeEventListener('storage', handleStorage);
       if (broadcastChannel) broadcastChannel.close();
+      if (channel && supabase && typeof supabase.removeChannel === 'function') {
+        supabase.removeChannel(channel);
+      }
     };
   }, []);
 
@@ -398,7 +479,17 @@ export default function App() {
 
   const handleUnlockWithPin = (e) => {
     if (e) e.preventDefault();
-    if (pinInput.trim() === '2026' || pinInput.trim().toUpperCase() === 'SSG2026') {
+
+    // Check anti-brute force rate limit
+    const rateCheck = checkPinRateLimit();
+    if (!rateCheck.allowed) {
+      setPinError(`🚫 Too many failed attempts. Security cooldown: ${rateCheck.remainingSeconds}s.`);
+      return;
+    }
+
+    const cleanPin = pinInput.trim();
+    if (cleanPin === '2026' || cleanPin.toUpperCase() === 'SSG2026') {
+      resetPinAttempts();
       setIsAdminAuthed(true);
       try {
         sessionStorage.setItem('ursp_admin_authed', 'true');
@@ -411,7 +502,12 @@ export default function App() {
       window.history.pushState({}, '', url);
       setPendingRoute(null);
     } else {
-      setPinError('❌ Incorrect Security PIN. Access denied.');
+      const attemptResult = recordFailedPinAttempt();
+      if (attemptResult.locked) {
+        setPinError(`🚫 Too many attempts. Access locked for 60 seconds.`);
+      } else {
+        setPinError(`❌ Incorrect Security PIN. ${attemptResult.attemptsRemaining} attempt(s) remaining.`);
+      }
     }
   };
 

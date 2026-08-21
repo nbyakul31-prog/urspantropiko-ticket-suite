@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import QRCode from 'qrcode.react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { sanitizeExcelFormula, sanitizeText } from './lib/security';
 
 // 3 Official Colleges at URS Pililla
 export const OFFICIAL_COLLEGES = [
@@ -389,14 +390,14 @@ export default function AdminDashboard({
       tableHTML += `
         <tr style="background-color: ${theme.rowBg};">
           <td class="cell-center" style="font-weight: bold; color: #64748B;">${idx + 1}</td>
-          <td class="cell-center" style="font-weight: bold; color: #1E293B; font-family: monospace;">${d.ticket_code}</td>
-          <td class="cell-center" style="font-weight: bold; color: #0F172A; font-family: monospace; mso-number-format:'\\@';">${d.student_id}</td>
-          <td class="cell-left" style="font-weight: bold; color: #0F172A;">${d.full_name}</td>
+          <td class="cell-center" style="font-weight: bold; color: #1E293B; font-family: monospace;">${sanitizeExcelFormula(d.ticket_code)}</td>
+          <td class="cell-center" style="font-weight: bold; color: #0F172A; font-family: monospace; mso-number-format:'\\@';">${sanitizeExcelFormula(d.student_id)}</td>
+          <td class="cell-left" style="font-weight: bold; color: #0F172A;">${sanitizeExcelFormula(d.full_name)}</td>
           <td class="cell-center" style="background-color: ${theme.badgeBg}; color: ${theme.badgeText}; font-weight: bold; border: 1px solid ${theme.badgeBorder};">
-            ${theme.icon} ${d.department || 'N/A'}
+            ${theme.icon} ${sanitizeExcelFormula(d.department || 'N/A')}
           </td>
-          <td class="cell-center" style="font-weight: bold; color: #1E293B;">${d.program_section}</td>
-          <td class="cell-center">${d.year_level || '1st Year'}</td>
+          <td class="cell-center" style="font-weight: bold; color: #1E293B;">${sanitizeExcelFormula(d.program_section)}</td>
+          <td class="cell-center">${sanitizeExcelFormula(d.year_level || '1st Year')}</td>
           <td class="${isPaid ? 'badge-paid' : 'badge-unpaid'}">
             ${isPaid ? '💳 PAID &amp; VERIFIED' : '⏳ UNPAID'}
           </td>
