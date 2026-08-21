@@ -96,11 +96,11 @@ export default function App() {
   const [livePings, setLivePings] = useState([]);
   const [highlightedCode, setHighlightedCode] = useState(null);
 
-  // Live Toast Notification System (5-second auto-dismiss with rate-limiter)
+  // Live Toast Notification System (5-second auto-dismiss with deduplication & batch incrementer)
   const [activeToasts, setActiveToasts] = useState([]);
-  const lastToastTimeRef = useRef(0);
+  const seenPingsMap = useRef(new Map());
   const pendingRegistrationsCountRef = useRef(0);
-  const rateLimitTimerRef = useRef(null);
+  const regBatchTimerRef = useRef(null);
 
   // Initial Route Security Check (Intercept direct ?view=admin links)
   useEffect(() => {
@@ -164,7 +164,11 @@ export default function App() {
   };
 
   const triggerToast = (toastObj) => {
-    setActiveToasts(prev => [toastObj, ...prev.slice(0, 2)]);
+    setActiveToasts(prev => {
+      // Remove any identical toast message or id to prevent double stacking
+      const filtered = prev.filter(t => t.id !== toastObj.id && t.message !== toastObj.message);
+      return [toastObj, ...filtered.slice(0, 1)]; // Keep at most 2 active toasts on screen
+    });
     // 5-second automatic timer
     setTimeout(() => {
       setActiveToasts(prev => prev.filter(t => t.id !== toastObj.id));
@@ -176,11 +180,32 @@ export default function App() {
   };
 
   const addLivePing = (ping) => {
+    if (!ping) return;
+
+    // Deduplication Key: prevent double notifications from local + broadcast relay
+    const dedupeKey = ping.id || `${ping.type}_${ping.ticket_code || 'all'}_${ping.title || ''}_${ping.message || ''}`;
+    const now = Date.now();
+    if (seenPingsMap.current.has(dedupeKey)) {
+      const lastSeen = seenPingsMap.current.get(dedupeKey);
+      if (now - lastSeen < 4000) {
+        return; // Ignore duplicate event within 4 seconds
+      }
+    }
+    seenPingsMap.current.set(dedupeKey, now);
+
+    // Prune old dedupe keys
+    if (seenPingsMap.current.size > 100) {
+      for (const [k, v] of seenPingsMap.current.entries()) {
+        if (now - v > 15000) seenPingsMap.current.delete(k);
+      }
+    }
+
     const enriched = {
-      id: 'PING-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      id: dedupeKey,
       timestamp: getPHTimeString(),
       ...ping
     };
+
     setLivePings(prev => [enriched, ...prev.slice(0, 19)]);
     if (ping.ticket_code) {
       setHighlightedCode(ping.ticket_code);
@@ -189,34 +214,34 @@ export default function App() {
       }, 5000);
     }
 
-    // Rate Limiter: Instill 2-second rate limit on registration toasts to prevent popup spam
-    const now = Date.now();
+    // REGISTRATION NOTIFICATIONS: Batch & Incremental Summary Mode
+    // Eliminates per-individual popup overload for high system stability
     if (ping.type === 'registration') {
-      const timeSinceLast = now - lastToastTimeRef.current;
-      if (timeSinceLast < 2000) {
-        pendingRegistrationsCountRef.current += 1;
-        if (!rateLimitTimerRef.current) {
-          rateLimitTimerRef.current = setTimeout(() => {
-            const count = pendingRegistrationsCountRef.current;
-            pendingRegistrationsCountRef.current = 0;
-            rateLimitTimerRef.current = null;
-            if (count > 0) {
-              const aggregatedPing = {
-                id: 'PING-AGG-' + Date.now(),
-                timestamp: getPHTimeString(),
-                type: 'registration',
-                title: '⚡ BATCH REGISTRATIONS',
-                message: `✨ ${count} more student${count > 1 ? 's' : ''} just registered online!`
-              };
-              triggerToast(aggregatedPing);
-            }
-          }, 2200);
+      pendingRegistrationsCountRef.current += 1;
+      if (regBatchTimerRef.current) clearTimeout(regBatchTimerRef.current);
+
+      regBatchTimerRef.current = setTimeout(() => {
+        const count = pendingRegistrationsCountRef.current;
+        pendingRegistrationsCountRef.current = 0;
+        regBatchTimerRef.current = null;
+
+        if (count > 0) {
+          const batchToast = {
+            id: 'REG-BATCH-' + Date.now(),
+            timestamp: getPHTimeString(),
+            type: 'registration',
+            title: count === 1 ? '🎉 NEW REGISTRATION' : '⚡ BATCH REGISTRATIONS',
+            message: count === 1
+              ? '✨ A new student submitted their registration (Masterlist updated)'
+              : `⚡ ${count} students submitted registrations online (Masterlist updated)`
+          };
+          triggerToast(batchToast);
         }
-        return;
-      }
-      lastToastTimeRef.current = now;
+      }, 1200);
+      return;
     }
 
+    // Action Toasts (Payment, Admission, Deletion): Deduplicated single toast
     triggerToast(enriched);
   };
 
