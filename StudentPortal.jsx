@@ -40,7 +40,9 @@ const COLLEGES_DATA = [
 
 export default function StudentPortal({ onTicketGenerated }) {
   const [studentId, setStudentId] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [middleInitial, setMiddleInitial] = useState('');
   const [department, setDepartment] = useState('College of Education');
   const [yearLevel, setYearLevel] = useState('3rd Year');
   const [section, setSection] = useState('BSED 3-A');
@@ -65,14 +67,20 @@ export default function StudentPortal({ onTicketGenerated }) {
     setError(null);
 
     const cleanStudentId = sanitizeStudentId(studentId);
-    const cleanFullName = sanitizeText(fullName);
+    const cleanLast = sanitizeText(lastName);
+    const cleanFirst = sanitizeText(firstName);
+    const cleanMI = sanitizeText(middleInitial);
     const cleanSection = sanitizeText(section);
 
-    if (!cleanStudentId || !cleanFullName) {
-      setError('Please provide a valid Student ID and Full Name.');
+    if (!cleanStudentId || !cleanLast || !cleanFirst) {
+      setError('Please provide your Student ID, Surname (Last Name), and First Name.');
       setLoading(false);
       return;
     }
+
+    const formattedFullName = cleanMI
+      ? `${cleanLast}, ${cleanFirst} ${cleanMI.replace('.', '')}.`
+      : `${cleanLast}, ${cleanFirst}`;
 
     const ticketCode = 'TKT-' + Math.floor(10000 + Math.random() * 90000);
 
@@ -80,7 +88,7 @@ export default function StudentPortal({ onTicketGenerated }) {
       id: 'REG-' + Date.now(),
       ticket_code: ticketCode,
       student_id: cleanStudentId,
-      full_name: cleanFullName,
+      full_name: formattedFullName,
       program_section: cleanSection,
       department: sanitizeText(department),
       year_level: sanitizeText(yearLevel),
@@ -299,27 +307,78 @@ export default function StudentPortal({ onTicketGenerated }) {
               />
             </motion.div>
 
-            {/* Full Name Input */}
+            {/* Structured Name Inputs (Mandatory Surname First for Organization) */}
             <motion.div
-              className="portal-form-group"
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4, duration: 0.3 }}
+              style={{ marginBottom: '16px' }}
             >
-              <label className="portal-label">Full Name</label>
-              <input
-                type="text"
-                placeholder="e.g. Maria Clara Santos"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-                className="portal-input"
-                style={{
-                  background: 'rgba(0, 0, 0, 0.55)',
-                  border: '1.5px solid rgba(255, 255, 255, 0.15)',
-                  boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)'
-                }}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.1fr 0.6fr', gap: '8px' }}>
+                <div>
+                  <label className="portal-label" style={{ fontSize: '11px', marginBottom: '4px' }}>
+                    Surname (Apelyido) *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Britania"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required
+                    className="portal-input"
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.55)',
+                      border: '1.5px solid rgba(255, 255, 255, 0.15)',
+                      boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)',
+                      padding: '10px 12px',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className="portal-label" style={{ fontSize: '11px', marginBottom: '4px' }}>
+                    First Name (Pangalan) *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Luigi Emanuel"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required
+                    className="portal-input"
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.55)',
+                      border: '1.5px solid rgba(255, 255, 255, 0.15)',
+                      boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)',
+                      padding: '10px 12px',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className="portal-label" style={{ fontSize: '11px', marginBottom: '4px' }}>
+                    M.I.
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={4}
+                    placeholder="M."
+                    value={middleInitial}
+                    onChange={(e) => setMiddleInitial(e.target.value)}
+                    className="portal-input"
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.55)',
+                      border: '1.5px solid rgba(255, 255, 255, 0.15)',
+                      boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)',
+                      padding: '10px 8px',
+                      textAlign: 'center',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+              </div>
             </motion.div>
 
             {/* Year Level & Section */}

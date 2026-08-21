@@ -56,13 +56,36 @@ function saveStoredTickets(ticketsList) {
 }
 
 export default function App() {
+  const [isAdminAuthed, setIsAdminAuthed] = useState(() => {
+    try {
+      return sessionStorage.getItem('ursp_admin_authed') === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [pendingRoute, setPendingRoute] = useState(null);
+
   const getRoute = () => {
     const path = window.location.pathname.toLowerCase();
     const params = new URLSearchParams(window.location.search);
     const viewParam = params.get('view') || params.get('tab');
+    const token = params.get('token');
     
-    if (path.includes('admin') || viewParam === 'admin') return 'admin';
-    if (path.includes('usher') || path.includes('scanner') || viewParam === 'usher') return 'usher';
+    if (path.includes('admin') || viewParam === 'admin') {
+      const isAuthed = sessionStorage.getItem('ursp_admin_authed') === 'true';
+      if (isAuthed) return 'admin';
+      return 'student'; // Fallback to student and trigger PIN modal
+    }
+    if (path.includes('usher') || path.includes('scanner') || viewParam === 'usher' || token) {
+      if (token === 'USHER-MASTER-2026' || sessionStorage.getItem('ursp_admin_authed') === 'true') {
+        return 'usher';
+      }
+      return 'student';
+    }
     return 'student'; // Default public route
   };
 
@@ -70,6 +93,25 @@ export default function App() {
   const [tickets, setTickets] = useState(getStoredTickets);
   const [livePings, setLivePings] = useState([]);
   const [highlightedCode, setHighlightedCode] = useState(null);
+
+  // Initial Route Security Check (Intercept direct ?view=admin links)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const viewParam = params.get('view');
+    const token = params.get('token');
+    
+    if (viewParam === 'admin' && !isAdminAuthed) {
+      setPendingRoute('admin');
+      setPinError('');
+      setPinInput('');
+      setShowPinModal(true);
+    } else if (viewParam === 'usher' && token !== 'USHER-MASTER-2026' && !isAdminAuthed) {
+      setPendingRoute('usher');
+      setPinError('');
+      setPinInput('');
+      setShowPinModal(true);
+    }
+  }, [isAdminAuthed]);
 
   // Sync route on history pop
   useEffect(() => {
@@ -443,19 +485,6 @@ export default function App() {
 
     return deleted;
   };
-
-  const [isAdminAuthed, setIsAdminAuthed] = useState(() => {
-    try {
-      return sessionStorage.getItem('ursp_admin_authed') === 'true';
-    } catch (e) {
-      return false;
-    }
-  });
-
-  const [showPinModal, setShowPinModal] = useState(false);
-  const [pinInput, setPinInput] = useState('');
-  const [pinError, setPinError] = useState('');
-  const [pendingRoute, setPendingRoute] = useState(null);
 
   const handleNavigate = (newRoute) => {
     if (newRoute === 'admin' && !isAdminAuthed) {

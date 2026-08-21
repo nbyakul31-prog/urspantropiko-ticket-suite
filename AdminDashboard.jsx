@@ -96,6 +96,7 @@ export default function AdminDashboard({
   const [selectedDay2Status, setSelectedDay2Status] = useState('ALL');
   const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('recent'); // 'recent' | 'alpha_asc' | 'alpha_desc' | 'oldest' | 'paid_first' | 'day1_first' | 'day2_first'
   const [activeTab, setActiveTab] = useState('masterlist'); // 'masterlist' | 'analytics' | 'access'
 
   // Delete attendee confirmation modal state
@@ -206,9 +207,9 @@ export default function AdminDashboard({
     }).length;
   }, [tickets, duplicatesMap]);
 
-  // Filtered List based on all filters
+  // Filtered & Sorted List based on all filters and sort mode
   const filtered = useMemo(() => {
-    return tickets.filter(item => {
+    const list = tickets.filter(item => {
       const matchDept = selectedDepartment === 'ALL' || item.department === selectedDepartment;
       const matchSec = selectedSection === 'ALL' || item.program_section === selectedSection;
       const matchYear = selectedYearLevel === 'ALL' || item.year_level === selectedYearLevel;
@@ -227,7 +228,36 @@ export default function AdminDashboard({
                           (item.program_section || '').toLowerCase().includes(searchQuery.toLowerCase());
       return matchDept && matchSec && matchYear && matchPayment && matchDay1 && matchDay2 && matchDuplicate && matchSearch;
     });
-  }, [tickets, selectedDepartment, selectedSection, selectedYearLevel, selectedPaymentStatus, selectedDay1Status, selectedDay2Status, showDuplicatesOnly, searchQuery, duplicatesMap]);
+
+    return [...list].sort((a, b) => {
+      if (sortBy === 'alpha_asc') {
+        return (a.full_name || '').localeCompare(b.full_name || '');
+      }
+      if (sortBy === 'alpha_desc') {
+        return (b.full_name || '').localeCompare(a.full_name || '');
+      }
+      if (sortBy === 'oldest') {
+        return (a.created_at || a.id || '').localeCompare(b.created_at || b.id || '');
+      }
+      if (sortBy === 'paid_first') {
+        if (a.payment_status === 'paid' && b.payment_status !== 'paid') return -1;
+        if (a.payment_status !== 'paid' && b.payment_status === 'paid') return 1;
+        return (a.full_name || '').localeCompare(b.full_name || '');
+      }
+      if (sortBy === 'day1_first') {
+        if (a.day1_status === 'attended' && b.day1_status !== 'attended') return -1;
+        if (a.day1_status !== 'attended' && b.day1_status === 'attended') return 1;
+        return (a.full_name || '').localeCompare(b.full_name || '');
+      }
+      if (sortBy === 'day2_first') {
+        if (a.day2_status === 'attended' && b.day2_status !== 'attended') return -1;
+        if (a.day2_status !== 'attended' && b.day2_status === 'attended') return 1;
+        return (a.full_name || '').localeCompare(b.full_name || '');
+      }
+      // Default: 'recent' (newest registration first)
+      return (b.created_at || b.id || '').localeCompare(a.created_at || a.id || '');
+    });
+  }, [tickets, selectedDepartment, selectedSection, selectedYearLevel, selectedPaymentStatus, selectedDay1Status, selectedDay2Status, showDuplicatesOnly, searchQuery, duplicatesMap, sortBy]);
 
   // KPI Calculations
   const totalCount = tickets.length;
@@ -317,12 +347,13 @@ export default function AdminDashboard({
     }
   };
 
-  // Download Excel (.xls)
+  // Download Excel (.xls) - Strictly Alphabetized by Surname for Auditor Excellence
   const downloadExcel = () => {
-    const totalInReport = filtered.length;
-    const paidInReport = filtered.filter(i => i.payment_status === 'paid').length;
-    const day1InReport = filtered.filter(i => i.day1_status === 'attended').length;
-    const day2InReport = filtered.filter(i => i.day2_status === 'attended').length;
+    const alphabetizedList = [...filtered].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+    const totalInReport = alphabetizedList.length;
+    const paidInReport = alphabetizedList.filter(i => i.payment_status === 'paid').length;
+    const day1InReport = alphabetizedList.filter(i => i.day1_status === 'attended').length;
+    const day2InReport = alphabetizedList.filter(i => i.day2_status === 'attended').length;
     const paidPct = totalInReport > 0 ? Math.round((paidInReport / totalInReport) * 100) : 0;
     const totalCols = 10;
 
@@ -361,7 +392,7 @@ export default function AdminDashboard({
             <td colspan="${totalCols}" class="banner-venue">📅 September 17-18, 2026 &nbsp;|&nbsp; 📍 University Gymnasium • URS Pililla Campus</td>
           </tr>
           <tr>
-            <td colspan="${totalCols}" class="banner-doc">📋 Official 2-Day Attendance &amp; Ledger Audit Masterlist</td>
+            <td colspan="${totalCols}" class="banner-doc">📋 Official Alphabetical (A-Z by Surname) Attendance &amp; Ledger Audit Masterlist</td>
           </tr>
 
           <!-- Top Executive Analytics SITREP -->
@@ -391,7 +422,7 @@ export default function AdminDashboard({
             <th class="th-std" style="width: 45px;">#</th>
             <th class="th-std" style="width: 130px;">Ticket Ref</th>
             <th class="th-std" style="width: 130px;">Student ID</th>
-            <th class="th-std" style="width: 220px;">Student Full Name</th>
+            <th class="th-std" style="width: 220px;">Student Name (Surname First)</th>
             <th class="th-std" style="width: 210px;">College / Department</th>
             <th class="th-std" style="width: 140px;">Program &amp; Section</th>
             <th class="th-std" style="width: 110px;">Year Level</th>
@@ -401,7 +432,7 @@ export default function AdminDashboard({
           </tr>
     `;
 
-    filtered.forEach((d, idx) => {
+    alphabetizedList.forEach((d, idx) => {
       const theme = getCollegeTheme(d.department);
       const isPaid = d.payment_status === 'paid';
       const isDay1Attended = d.day1_status === 'attended';
@@ -461,17 +492,18 @@ export default function AdminDashboard({
       return;
     }
 
-    const totalInReport = filtered.length;
-    const paidInReport = filtered.filter(i => i.payment_status === 'paid').length;
-    const day1InReport = filtered.filter(i => i.day1_status === 'attended').length;
-    const day2InReport = filtered.filter(i => i.day2_status === 'attended').length;
+    const alphabetizedList = [...filtered].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+    const totalInReport = alphabetizedList.length;
+    const paidInReport = alphabetizedList.filter(i => i.payment_status === 'paid').length;
+    const day1InReport = alphabetizedList.filter(i => i.day1_status === 'attended').length;
+    const day2InReport = alphabetizedList.filter(i => i.day2_status === 'attended').length;
     const paidPct = totalInReport > 0 ? Math.round((paidInReport / totalInReport) * 100) : 0;
 
     const html = `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>URSPANTROPIKO 2026 — 2-Day Masterlist Print Ledger</title>
+        <title>URSPANTROPIKO 2026 — Official Alphabetical Masterlist Print Ledger</title>
         <style>
           @page { size: A4 landscape; margin: 10mm; }
           body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 8.5pt; color: #0F172A; margin: 0; padding: 0; }
@@ -493,7 +525,7 @@ export default function AdminDashboard({
           <div style="flex: 1; text-align: center;">
             <h1>🏛️ UNIVERSITY OF RIZAL SYSTEM • PILILLA CAMPUS</h1>
             <h2>🎉 URSPANTROPIKO: ACQUAINTANCE PARTY &amp; GENERAL ASSEMBLY 2026</h2>
-            <p>📅 Sept 17-18, 2026 &nbsp;|&nbsp; 📍 University Gymnasium • URS Pililla &nbsp;|&nbsp; 📋 Official 2-Day Attendance &amp; Ledger Audit</p>
+            <p>📅 Sept 17-18, 2026 &nbsp;|&nbsp; 📍 University Gymnasium • URS Pililla &nbsp;|&nbsp; 📋 Official Alphabetical (Surname First) Ledger Audit</p>
           </div>
           <img src="${window.location.origin}/urs_logo.png" style="width: 52px; height: 52px; border-radius: 50%; background: #FFF; border: 2px solid #38BDF8; object-fit: contain;" />
         </div>
@@ -519,7 +551,7 @@ export default function AdminDashboard({
               <th style="width: 25px;">#</th>
               <th style="width: 80px;">Ticket Ref</th>
               <th style="width: 85px;">Student ID</th>
-              <th>Student Full Name</th>
+              <th>Student Name (Surname First)</th>
               <th>College Department</th>
               <th>Section</th>
               <th>Year</th>
@@ -529,7 +561,7 @@ export default function AdminDashboard({
             </tr>
           </thead>
           <tbody>
-            ${filtered.map((d, idx) => {
+            ${alphabetizedList.map((d, idx) => {
               const theme = getCollegeTheme(d.department);
               const isPaid = d.payment_status === 'paid';
               const isDay1 = d.day1_status === 'attended';
@@ -1060,6 +1092,29 @@ export default function AdminDashboard({
                 <option value="not_attended">❌ Day 2 Absent</option>
               </motion.select>
 
+              {/* Dynamic Sort Order Selector */}
+              <motion.select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="select-filter"
+                style={{
+                  background: 'rgba(56, 189, 248, 0.15)',
+                  borderColor: 'rgba(56, 189, 248, 0.45)',
+                  color: '#38BDF8',
+                  fontWeight: '700'
+                }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <option value="recent">🕒 Sort: Newest Registered First</option>
+                <option value="alpha_asc">🔤 Sort: A ➔ Z (Surname First)</option>
+                <option value="alpha_desc">🔤 Sort: Z ➔ A (Surname)</option>
+                <option value="oldest">🕒 Sort: Oldest Registered First</option>
+                <option value="paid_first">💳 Sort: Paid First</option>
+                <option value="day1_first">🌅 Sort: Day 1 Admitted First</option>
+                <option value="day2_first">🌴 Sort: Day 2 Admitted First</option>
+              </motion.select>
+
               {/* Duplicate Detection Toggle Filter */}
               <motion.button
                 type="button"
@@ -1136,6 +1191,11 @@ export default function AdminDashboard({
                       <td>
                         <div className="font-bold text-white text-sm flex items-center gap-2">
                           <span>{item.full_name}</span>
+                          {item.ticket_code === tickets[0]?.ticket_code && (
+                            <span className="badge-new-attendee" title="Most recent attendee registration">
+                              ✨ NEW
+                            </span>
+                          )}
                           {isDuplicate && (
                             <span className="duplicate-tag" title="Potential duplicate student entry detected">
                               ⚠️ {isDuplicateId ? 'Duplicate ID' : 'Duplicate Name'}
