@@ -7,6 +7,16 @@ import { sanitizeText, sanitizeStudentId } from './lib/security';
 
 const COLLEGES_DATA = [
   {
+    name: 'College of Business',
+    short: 'CB',
+    icon: '💼',
+    color: '#10B981',
+    bgColor: '#D1FAE5',
+    textColor: '#065F46',
+    borderColor: '#A7F3D0',
+    sampleSections: ['BSBA 1-A', 'BSBA 2-A', 'BSBA 3-A', 'BSBA 4-B', 'BSA 1-A', 'BSA 2-A', 'BSHM 3-A']
+  },
+  {
     name: 'College of Education',
     short: 'COED',
     icon: '📚',
@@ -25,16 +35,6 @@ const COLLEGES_DATA = [
     textColor: '#5B21B6',
     borderColor: '#DDD6FE',
     sampleSections: ['AB-POLSCI 1-A', 'AB-POLSCI 2-A', 'AB-SOC 3-A', 'BS-PSYCH 1-A', 'BS-PSYCH 2-A', 'BPA 3-A']
-  },
-  {
-    name: 'College of Business',
-    short: 'CB',
-    icon: '💼',
-    color: '#10B981',
-    bgColor: '#D1FAE5',
-    textColor: '#065F46',
-    borderColor: '#A7F3D0',
-    sampleSections: ['BSBA 1-A', 'BSBA 2-A', 'BSBA 3-A', 'BSBA 4-B', 'BSA 1-A', 'BSA 2-A', 'BSHM 3-A']
   }
 ];
 
@@ -43,9 +43,9 @@ export default function StudentPortal({ onTicketGenerated }) {
   const [lastName, setLastName] = useState('');
   const [firstName, setFirstName] = useState('');
   const [middleInitial, setMiddleInitial] = useState('');
-  const [department, setDepartment] = useState('College of Education');
-  const [yearLevel, setYearLevel] = useState('3rd Year');
-  const [section, setSection] = useState('BSED 3-A');
+  const [department, setDepartment] = useState('College of Business');
+  const [yearLevel, setYearLevel] = useState('1st Year');
+  const [section, setSection] = useState('BSBA 1-A');
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -61,179 +61,137 @@ export default function StudentPortal({ onTicketGenerated }) {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleGenerateTicket = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
-
-    const cleanStudentId = sanitizeStudentId(studentId);
-    const cleanLast = sanitizeText(lastName);
-    const cleanFirst = sanitizeText(firstName);
-    const cleanMI = sanitizeText(middleInitial);
-    const cleanSection = sanitizeText(section);
-
-    if (!cleanStudentId || !cleanLast || !cleanFirst) {
-      setError('Please provide your Student ID, Surname (Last Name), and First Name.');
-      setLoading(false);
-      return;
-    }
-
-    const formattedFullName = cleanMI
-      ? `${cleanLast}, ${cleanFirst} ${cleanMI.replace('.', '')}.`
-      : `${cleanLast}, ${cleanFirst}`;
-
-    const ticketCode = 'TKT-' + Math.floor(10000 + Math.random() * 90000);
-
-    const newAttendee = {
-      id: 'REG-' + Date.now(),
-      ticket_code: ticketCode,
-      student_id: cleanStudentId,
-      full_name: formattedFullName,
-      program_section: cleanSection,
-      department: sanitizeText(department),
-      year_level: sanitizeText(yearLevel),
-      payment_status: 'unpaid',
-      attendance_status: 'not_attended',
-      created_at: new Date().toISOString()
-    };
+    setLoading(true);
 
     try {
-      // 1. Direct LocalStorage Sync Backup
-      try {
-        const raw = localStorage.getItem('ursp_masterlist_attendees_v4');
-        const list = raw ? JSON.parse(raw) : [];
-        const nextList = [newAttendee, ...list.filter(t => t.ticket_code !== newAttendee.ticket_code && t.student_id !== newAttendee.student_id)];
-        localStorage.setItem('ursp_masterlist_attendees_v4', JSON.stringify(nextList));
-        if (typeof BroadcastChannel !== 'undefined') {
-          const ch = new BroadcastChannel('ursp_live_sync_channel');
-          ch.postMessage({ type: 'SYNC_TICKETS', tickets: nextList });
-          ch.close();
-        }
-      } catch (e) {}
+      const sanitizedStudentId = sanitizeStudentId(studentId);
+      const cleanLastName = sanitizeText(lastName);
+      const cleanFirstName = sanitizeText(firstName);
+      const cleanMI = sanitizeText(middleInitial).toUpperCase();
 
-      // 2. Notify App parent component
-      if (onTicketGenerated) {
-        await onTicketGenerated(newAttendee);
+      if (!sanitizedStudentId) {
+        throw new Error('Please enter a valid Student ID.');
+      }
+      if (!cleanLastName || !cleanFirstName) {
+        throw new Error('Please enter both your Surname and First Name.');
+      }
+
+      const formattedFullName = cleanMI 
+        ? `${cleanLastName}, ${cleanFirstName} ${cleanMI}.`
+        : `${cleanLastName}, ${cleanFirstName}`;
+
+      const cleanDept = sanitizeText(department);
+      const cleanYear = sanitizeText(yearLevel);
+      const cleanSection = sanitizeText(section);
+
+      const generatedCode = 'TKT-' + Math.floor(10000 + Math.random() * 90000);
+
+      const newAttendee = {
+        student_id: sanitizedStudentId,
+        full_name: formattedFullName,
+        department: cleanDept,
+        year_level: cleanYear,
+        program_section: cleanSection,
+        ticket_code: generatedCode,
+        payment_status: 'unpaid',
+        day1_status: 'not_attended',
+        day2_status: 'not_attended',
+        created_at: new Date().toISOString()
+      };
+
+      try {
+        const { data, error: sbError } = await supabase
+          .from('attendees')
+          .insert([newAttendee])
+          .select();
+
+        if (sbError) {
+          console.warn('Supabase insert notice (fallback to local state active):', sbError.message);
+        }
+      } catch (err) {
+        console.warn('Network sync notice:', err);
+      }
+
+      try {
+        const existingData = localStorage.getItem('ursp_masterlist_attendees_v4');
+        let currentList = existingData ? JSON.parse(existingData) : [];
+        currentList = [newAttendee, ...currentList];
+        localStorage.setItem('ursp_masterlist_attendees_v4', JSON.stringify(currentList));
+      } catch (e) {
+        console.error('LocalStorage write error:', e);
       }
 
       setTicket(newAttendee);
+
+      if (onTicketGenerated) {
+        onTicketGenerated(newAttendee);
+      }
     } catch (err) {
-      console.error('Registration handler:', err);
-      setTicket(newAttendee);
+      setError(err.message || 'An error occurred while generating your ticket.');
     } finally {
       setLoading(false);
     }
   };
 
-  const downloadBadge = async () => {
+  const handleDownloadBadge = async () => {
     if (!badgeRef.current) return;
     try {
       const canvas = await html2canvas(badgeRef.current, {
-        backgroundColor: '#0F172A',
-        scale: 2
+        scale: 3,
+        useCORS: true,
+        backgroundColor: null
       });
-      const imageData = canvas.toDataURL('image/png');
+      const image = canvas.toDataURL('image/png');
       const link = document.createElement('a');
-      link.href = imageData;
-      link.download = `Ticket-Pass-${ticket?.ticket_code || 'student'}.png`;
+      link.href = image;
+      link.download = `URSPANTROPIKO_2026_TICKET_${ticket.ticket_code}.png`;
       link.click();
     } catch (err) {
-      console.error('Download error:', err);
+      alert('Could not download image badge. Please take a screenshot of your ticket!');
     }
   };
 
   return (
-    <motion.div
-      className="portal-mobile-wrapper"
-      initial={{ opacity: 0, y: 25 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 20 }}
-      transition={{ duration: 0.4 }}
-    >
+    <div className="portal-container">
       <motion.div
         className="portal-glass-card"
-        whileHover={{ boxShadow: '0 35px 95px -10px rgba(0, 0, 0, 0.9), 0 0 60px rgba(255, 107, 53, 0.45)' }}
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.4 }}
       >
-        {/* Hero Poster Banner */}
-        <motion.div
-          className="portal-poster-hero"
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.1, duration: 0.5, type: 'spring' }}
-          style={{ position: 'relative', overflow: 'hidden', borderRadius: '16px', marginBottom: '16px', boxShadow: '0 12px 35px rgba(0,0,0,0.6)' }}
-        >
-          <img
-            src="/poster.jpg"
-            alt="URSPANTROPIKO Acquaintance Party Poster"
-            className="portal-poster-img"
-            style={{ width: '100%', height: 'auto', maxHeight: '280px', objectFit: 'cover', display: 'block' }}
+        <div className="portal-hero-header">
+          <motion.img
+            src="/logo.png"
+            alt="URSP SSG Logo"
+            className="portal-hero-logo"
+            whileHover={{ scale: 1.08, rotate: [0, -5, 5, 0] }}
+            transition={{ duration: 0.5 }}
           />
-          <div className="portal-poster-overlay" style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            padding: '16px'
-          }}>
-            <motion.img
-              src="/logo.png"
-              alt="URSP SSG Official Logo"
-              className="portal-hero-logo"
-              whileHover={{ scale: 1.1 }}
-              style={{
-                width: '74px',
-                height: '74px',
-                borderRadius: '50%',
-                border: '3px solid #FFD100',
-                boxShadow: '0 0 25px rgba(255, 209, 0, 0.85), 0 6px 20px rgba(0, 0, 0, 0.8)',
-                objectFit: 'contain',
-                background: '#FFF',
-                marginBottom: '8px'
-              }}
-            />
-            <div style={{
-              fontFamily: "'Fredoka', sans-serif",
-              fontSize: '11px',
-              fontWeight: '700',
-              color: '#FFD100',
-              textTransform: 'uppercase',
-              letterSpacing: '1px',
-              textShadow: '0 2px 8px rgba(0,0,0,0.8)'
-            }}>
-              URSPANTROPIKO &bull; PILILLA CAMPUS
-            </div>
-          </div>
-        </motion.div>
+          <h1 className="portal-hero-title">URSPantropiko 2026</h1>
+          <p className="portal-hero-slogan">Acquaintance Party &amp; General Assembly</p>
+        </div>
 
-        {/* Event Info Strip */}
-        <motion.div
-          className="portal-event-strip"
-          initial={{ opacity: 0, y: -5 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.3 }}
-        >
+        <div className="portal-event-strip">
           <div className="event-strip-item">
-            <span className="event-strip-icon">📅</span>
+            <span>📅</span>
             <span>Sept 17–18, 2026</span>
           </div>
-          <div className="event-strip-divider"></div>
           <div className="event-strip-item">
-            <span className="event-strip-icon">⏰</span>
+            <span>⏰</span>
             <span>5:00 PM – 5:00 AM</span>
           </div>
-          <div className="event-strip-divider"></div>
           <div className="event-strip-item">
-            <span className="event-strip-icon">📍</span>
+            <span>📍</span>
             <span>URS Pililla Gym</span>
           </div>
-        </motion.div>
+        </div>
 
         {!ticket ? (
           <motion.form
-            onSubmit={handleSubmit}
+            onSubmit={handleGenerateTicket}
             className="portal-form"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -242,11 +200,8 @@ export default function StudentPortal({ onTicketGenerated }) {
           >
             {error && <div className="portal-alert-error">{error}</div>}
 
-            {/* 3 COLLEGES INTERACTIVE SELECTOR CARDS */}
             <div style={{ marginBottom: '16px' }}>
-              <label className="portal-label" style={{ marginBottom: '8px' }}>
-                Select Your College Division:
-              </label>
+              <label className="portal-label" style={{ marginBottom: '8px' }}>Select Your College Division:</label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
                 {COLLEGES_DATA.map(col => {
                   const isSelected = department === col.name;
@@ -275,26 +230,22 @@ export default function StudentPortal({ onTicketGenerated }) {
                     >
                       <span style={{ fontSize: '1.2rem' }}>{col.icon}</span>
                       <span style={{ fontSize: '0.75rem', fontWeight: '800' }}>{col.short}</span>
-                      <span style={{ fontSize: '0.62rem', opacity: 0.85, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
-                        {col.name.replace('College of ', '')}
-                      </span>
                     </motion.button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Student ID Input */}
             <motion.div
               className="portal-form-group"
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3, duration: 0.3 }}
             >
-              <label className="portal-label">Student Number / ID</label>
+              <label className="portal-label">Student Number / ID *</label>
               <input
                 type="text"
-                placeholder="e.g. 2022-09412"
+                placeholder="e.g. 2024-04001 or 24-1725"
                 value={studentId}
                 onChange={(e) => setStudentId(e.target.value)}
                 required
@@ -307,16 +258,15 @@ export default function StudentPortal({ onTicketGenerated }) {
               />
             </motion.div>
 
-            {/* Structured Name Inputs (Mandatory Surname First for Organization) */}
             <motion.div
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4, duration: 0.3 }}
               style={{ marginBottom: '16px' }}
             >
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.1fr 0.6fr', gap: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 75px', gap: '8px', alignItems: 'flex-start' }}>
                 <div>
-                  <label className="portal-label" style={{ fontSize: '11px', marginBottom: '4px' }}>
+                  <label className="portal-label" style={{ fontSize: '11px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     Surname (Apelyido) *
                   </label>
                   <input
@@ -330,14 +280,15 @@ export default function StudentPortal({ onTicketGenerated }) {
                       background: 'rgba(0, 0, 0, 0.55)',
                       border: '1.5px solid rgba(255, 255, 255, 0.15)',
                       boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)',
-                      padding: '10px 12px',
-                      fontSize: '13px'
+                      padding: '10px 10px',
+                      fontSize: '13px',
+                      height: '42px'
                     }}
                   />
                 </div>
 
                 <div>
-                  <label className="portal-label" style={{ fontSize: '11px', marginBottom: '4px' }}>
+                  <label className="portal-label" style={{ fontSize: '11px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     First Name (Pangalan) *
                   </label>
                   <input
@@ -351,14 +302,15 @@ export default function StudentPortal({ onTicketGenerated }) {
                       background: 'rgba(0, 0, 0, 0.55)',
                       border: '1.5px solid rgba(255, 255, 255, 0.15)',
                       boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)',
-                      padding: '10px 12px',
-                      fontSize: '13px'
+                      padding: '10px 10px',
+                      fontSize: '13px',
+                      height: '42px'
                     }}
                   />
                 </div>
 
                 <div>
-                  <label className="portal-label" style={{ fontSize: '11px', marginBottom: '4px' }}>
+                  <label className="portal-label" style={{ fontSize: '11px', marginBottom: '6px', textAlign: 'center' }}>
                     M.I.
                   </label>
                   <input
@@ -372,24 +324,25 @@ export default function StudentPortal({ onTicketGenerated }) {
                       background: 'rgba(0, 0, 0, 0.55)',
                       border: '1.5px solid rgba(255, 255, 255, 0.15)',
                       boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)',
-                      padding: '10px 8px',
+                      padding: '10px 6px',
                       textAlign: 'center',
-                      fontSize: '13px'
+                      fontSize: '13px',
+                      height: '42px'
                     }}
                   />
                 </div>
               </div>
             </motion.div>
 
-            {/* Year Level & Section */}
             <motion.div
               className="portal-form-row"
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.5, duration: 0.3 }}
+              style={{ marginBottom: '10px' }}
             >
               <div className="portal-form-group" style={{ flex: 1 }}>
-                <label className="portal-label">Year Level</label>
+                <label className="portal-label">Year Level *</label>
                 <select
                   value={yearLevel}
                   onChange={(e) => setYearLevel(e.target.value)}
@@ -403,11 +356,11 @@ export default function StudentPortal({ onTicketGenerated }) {
                 </select>
               </div>
 
-              <div className="portal-form-group" style={{ flex: 1 }}>
-                <label className="portal-label">Section</label>
+              <div className="portal-form-group" style={{ flex: 1.2 }}>
+                <label className="portal-label">Program &amp; Section *</label>
                 <input
                   type="text"
-                  placeholder={department === 'College of Education' ? 'e.g. BSED 3-A, BEED 2-B' : department === 'College of Social Sciences' ? 'e.g. AB-POLSCI 2-A, BS-PSYCH 1-A' : 'e.g. BSBA 3-A, BSA 1-A'}
+                  placeholder={department === 'College of Education' ? 'e.g. BSED 3-A' : department === 'College of Social Sciences' ? 'e.g. BS-PSYCH 1-A' : 'e.g. BSBA 1-A'}
                   value={section}
                   onChange={(e) => setSection(e.target.value)}
                   required
@@ -416,7 +369,32 @@ export default function StudentPortal({ onTicketGenerated }) {
               </div>
             </motion.div>
 
-            {/* Submit Button */}
+            {selectedCollegeObj?.sampleSections && (
+              <div style={{ marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '10.5px', color: '#94A3B8', fontWeight: 'bold' }}>Quick Pick:</span>
+                {selectedCollegeObj.sampleSections.slice(0, 5).map(sec => (
+                  <button
+                    key={sec}
+                    type="button"
+                    onClick={() => setSection(sec)}
+                    style={{
+                      background: section === sec ? `${selectedCollegeObj.color}33` : 'rgba(255,255,255,0.06)',
+                      border: section === sec ? `1px solid ${selectedCollegeObj.color}` : '1px solid rgba(255,255,255,0.12)',
+                      color: section === sec ? '#FEF08A' : '#CBD5E1',
+                      borderRadius: '6px',
+                      padding: '2px 8px',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      fontWeight: section === sec ? '800' : '500',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {sec}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <motion.button
               type="submit"
               disabled={loading}
@@ -625,6 +603,6 @@ export default function StudentPortal({ onTicketGenerated }) {
           </div>
         </div>
       </motion.div>
-    </motion.div>
+    </div>
   );
 }
