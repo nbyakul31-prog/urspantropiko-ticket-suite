@@ -68,9 +68,9 @@ export default function StudentPortal({ onTicketGenerated }) {
 
     try {
       const sanitizedStudentId = sanitizeStudentId(studentId);
-      const cleanLastName = sanitizeText(lastName);
-      const cleanFirstName = sanitizeText(firstName);
-      const cleanMI = sanitizeText(middleInitial).toUpperCase();
+      const cleanLastName = sanitizeText(lastName).trim();
+      const cleanFirstName = sanitizeText(firstName).trim();
+      const rawMI = sanitizeText(middleInitial).trim().toUpperCase().replace(/\./g, '');
 
       if (!sanitizedStudentId) {
         throw new Error('Please enter a valid Student ID.');
@@ -79,8 +79,9 @@ export default function StudentPortal({ onTicketGenerated }) {
         throw new Error('Please enter both your Surname and First Name.');
       }
 
-      const formattedFullName = cleanMI 
-        ? `${cleanLastName}, ${cleanFirstName} ${cleanMI}.`
+      // Mandatory format: Surname, FirstName M.I. (e.g. Britania, Luigi Emanuel E.)
+      const formattedFullName = rawMI 
+        ? `${cleanLastName}, ${cleanFirstName} ${rawMI}.`
         : `${cleanLastName}, ${cleanFirstName}`;
 
       const cleanDept = sanitizeText(department);
@@ -241,6 +242,7 @@ export default function StudentPortal({ onTicketGenerated }) {
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3, duration: 0.3 }}
+              style={{ marginBottom: '14px' }}
             >
               <label className="portal-label">Student Number / ID *</label>
               <input
@@ -253,44 +255,44 @@ export default function StudentPortal({ onTicketGenerated }) {
                 style={{
                   background: 'rgba(0, 0, 0, 0.55)',
                   border: '1.5px solid rgba(255, 255, 255, 0.15)',
-                  boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)'
+                  boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)',
+                  height: '44px',
+                  fontSize: '14px'
                 }}
               />
             </motion.div>
 
+            {/* Clean Structured Name Block: Perfectly Aligned 2-Row Layout */}
             <motion.div
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4, duration: 0.3 }}
-              style={{ marginBottom: '16px' }}
+              style={{ marginBottom: '14px' }}
             >
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 75px', gap: '8px', alignItems: 'flex-start' }}>
-                <div>
-                  <label className="portal-label" style={{ fontSize: '11px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    Surname (Apelyido) *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Britania"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    required
-                    className="portal-input"
-                    style={{
-                      background: 'rgba(0, 0, 0, 0.55)',
-                      border: '1.5px solid rgba(255, 255, 255, 0.15)',
-                      boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)',
-                      padding: '10px 10px',
-                      fontSize: '13px',
-                      height: '42px'
-                    }}
-                  />
-                </div>
+              {/* Row 1: Surname */}
+              <div className="portal-form-group" style={{ marginBottom: '12px' }}>
+                <label className="portal-label">Surname (Apelyido) *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Britania"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  required
+                  className="portal-input"
+                  style={{
+                    background: 'rgba(0, 0, 0, 0.55)',
+                    border: '1.5px solid rgba(255, 255, 255, 0.15)',
+                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)',
+                    height: '44px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
 
-                <div>
-                  <label className="portal-label" style={{ fontSize: '11px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    First Name (Pangalan) *
-                  </label>
+              {/* Row 2: First Name + Middle Initial (Optional) */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: '10px', alignItems: 'flex-start' }}>
+                <div className="portal-form-group" style={{ margin: 0 }}>
+                  <label className="portal-label">First Name (Pangalan) *</label>
                   <input
                     type="text"
                     placeholder="e.g. Luigi Emanuel"
@@ -302,20 +304,19 @@ export default function StudentPortal({ onTicketGenerated }) {
                       background: 'rgba(0, 0, 0, 0.55)',
                       border: '1.5px solid rgba(255, 255, 255, 0.15)',
                       boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)',
-                      padding: '10px 10px',
-                      fontSize: '13px',
-                      height: '42px'
+                      height: '44px',
+                      fontSize: '14px'
                     }}
                   />
                 </div>
 
-                <div>
-                  <label className="portal-label" style={{ fontSize: '11px', marginBottom: '6px', textAlign: 'center' }}>
-                    M.I.
+                <div className="portal-form-group" style={{ margin: 0 }}>
+                  <label className="portal-label" style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    M.I. <span style={{ opacity: 0.6, fontSize: '10px' }}>(Opt)</span>
                   </label>
                   <input
                     type="text"
-                    maxLength={4}
+                    maxLength={3}
                     placeholder="M."
                     value={middleInitial}
                     onChange={(e) => setMiddleInitial(e.target.value)}
@@ -324,10 +325,9 @@ export default function StudentPortal({ onTicketGenerated }) {
                       background: 'rgba(0, 0, 0, 0.55)',
                       border: '1.5px solid rgba(255, 255, 255, 0.15)',
                       boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)',
-                      padding: '10px 6px',
                       textAlign: 'center',
-                      fontSize: '13px',
-                      height: '42px'
+                      height: '44px',
+                      fontSize: '14px'
                     }}
                   />
                 </div>
