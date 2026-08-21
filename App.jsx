@@ -484,6 +484,12 @@ export default function App() {
     window.history.pushState({}, '', url);
   };
 
+  // Master Security Key Configuration (supports 11+ character enterprise passphrase & quick PIN)
+  const MASTER_SECURITY_KEY = import.meta.env.VITE_ADMIN_MASTER_KEY || 'URSP@SSG2026!';
+  const MASTER_SECURITY_PIN = '2026';
+  // Single Toggle for dev/testing hint (easily turn false before September launch)
+  const ENABLE_DEV_ACCESS_HINT = true;
+
   const handleUnlockWithPin = (e) => {
     if (e) e.preventDefault();
 
@@ -494,8 +500,14 @@ export default function App() {
       return;
     }
 
-    const cleanPin = pinInput.trim();
-    if (cleanPin === '2026' || cleanPin.toUpperCase() === 'SSG2026') {
+    const cleanInput = pinInput.trim();
+    const isAuthorized = 
+      cleanInput === MASTER_SECURITY_PIN || 
+      cleanInput.toUpperCase() === 'SSG2026' || 
+      cleanInput === MASTER_SECURITY_KEY ||
+      cleanInput.toUpperCase() === MASTER_SECURITY_KEY.toUpperCase();
+
+    if (isAuthorized) {
       resetPinAttempts();
       setIsAdminAuthed(true);
       try {
@@ -513,7 +525,7 @@ export default function App() {
       if (attemptResult.locked) {
         setPinError(`🚫 Too many attempts. Access locked for 60 seconds.`);
       } else {
-        setPinError(`❌ Incorrect Security PIN. ${attemptResult.attemptsRemaining} attempt(s) remaining.`);
+        setPinError(`❌ Access Denied: Invalid Security Clearance (${attemptResult.attemptsRemaining} attempt(s) left).`);
       }
     }
   };
@@ -644,18 +656,39 @@ export default function App() {
             <div className="security-shield-icon">🛡️</div>
             <h3 className="security-modal-title">SSG Master Security Clearance</h3>
             <p className="security-modal-desc">
-              Protected Officer Access. Enter the 4-digit Master Security PIN to authorize administrative controls.
+              Protected Officer Access. Enter the authorized SSG Master Clearance Passphrase or PIN to access administrative gate controls.
             </p>
+
+            {/* Dev Mode Access Hint Badge (removable with single command before September launch) */}
+            {ENABLE_DEV_ACCESS_HINT && (
+              <div style={{
+                background: 'rgba(56, 189, 248, 0.12)',
+                border: '1px dashed rgba(56, 189, 248, 0.35)',
+                borderRadius: '8px',
+                padding: '6px 12px',
+                fontSize: '11px',
+                color: '#38BDF8',
+                marginBottom: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}>
+                <span>🔑 <strong>Test Hint:</strong></span>
+                <span>PIN: <code>2026</code> &bull; Passphrase: <code>URSP@SSG2026!</code></span>
+              </div>
+            )}
 
             <form onSubmit={handleUnlockWithPin} className="security-form">
               <input
                 type="password"
-                maxLength={8}
-                placeholder="Enter PIN (e.g. 2026)"
+                maxLength={32}
+                placeholder="Enter Master Key or PIN"
                 value={pinInput}
                 onChange={(e) => setPinInput(e.target.value)}
                 autoFocus
                 className="security-pin-input"
+                style={{ fontSize: '15px', letterSpacing: '2px', textAlign: 'center' }}
               />
 
               {pinError && (
@@ -674,7 +707,7 @@ export default function App() {
                   type="submit"
                   className="btn-security-unlock"
                 >
-                  🔓 Unlock Access
+                  🔓 Authorize Access
                 </button>
               </div>
             </form>
