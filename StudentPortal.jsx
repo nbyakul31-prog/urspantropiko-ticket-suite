@@ -92,10 +92,10 @@ export default function StudentPortal({ onTicketGenerated }) {
     try {
       // 1. Direct LocalStorage Sync Backup
       try {
-        const raw = localStorage.getItem('ursp_masterlist_attendees_v3');
+        const raw = localStorage.getItem('ursp_masterlist_attendees_v4');
         const list = raw ? JSON.parse(raw) : [];
         const nextList = [newAttendee, ...list.filter(t => t.ticket_code !== newAttendee.ticket_code && t.student_id !== newAttendee.student_id)];
-        localStorage.setItem('ursp_masterlist_attendees_v3', JSON.stringify(nextList));
+        localStorage.setItem('ursp_masterlist_attendees_v4', JSON.stringify(nextList));
         if (typeof BroadcastChannel !== 'undefined') {
           const ch = new BroadcastChannel('ursp_live_sync_channel');
           ch.postMessage({ type: 'SYNC_TICKETS', tickets: nextList });
