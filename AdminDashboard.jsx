@@ -146,6 +146,46 @@ export default function AdminDashboard({
   const [groupByCollege, setGroupByCollege] = useState(true); // Collegiate Department divider grouping
   const [activeTab, setActiveTab] = useState('masterlist'); // 'masterlist' | 'analytics' | 'access'
 
+  // Set of ticket codes already marked as read/viewed by officer
+  const [readTickets, setReadTickets] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('ursp_read_tickets');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch (e) {
+      return new Set();
+    }
+  });
+
+  const markTicketAsRead = (ticketCode) => {
+    if (!ticketCode) return;
+    setReadTickets(prev => {
+      if (prev.has(ticketCode)) return prev;
+      const next = new Set(prev);
+      next.add(ticketCode);
+      try {
+        sessionStorage.setItem('ursp_read_tickets', JSON.stringify(Array.from(next)));
+      } catch (e) {}
+      return next;
+    });
+  };
+
+  // Check if ticket is newly registered (< 15 minutes old & unread)
+  const isTicketNew = (item) => {
+    if (!item || !item.ticket_code) return false;
+    if (readTickets.has(item.ticket_code)) return false;
+
+    if (item.created_at) {
+      const createdTime = new Date(item.created_at).getTime();
+      if (!isNaN(createdTime)) {
+        const ageMs = Date.now() - createdTime;
+        // Expire after 15 minutes (15 * 60 * 1000 = 900,000 ms)
+        return ageMs >= 0 && ageMs < 15 * 60 * 1000;
+      }
+    }
+
+    return item.ticket_code === tickets[0]?.ticket_code;
+  };
+
   // Delete attendee confirmation modal state
   const [attendeeToDelete, setAttendeeToDelete] = useState(null);
 
@@ -1332,6 +1372,8 @@ export default function AdminDashboard({
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, scale: 0.95 }}
                               transition={{ type: "spring", stiffness: 450, damping: 30 }}
+                              onMouseEnter={() => markTicketAsRead(item.ticket_code)}
+                              onClick={() => markTicketAsRead(item.ticket_code)}
                               className={`${isHighlighted ? 'row-highlight-pulse' : ''} ${isDuplicate ? 'row-duplicate-warn' : ''}`}
                             >
                               <td style={{ textAlign: 'center' }}>
@@ -1343,11 +1385,23 @@ export default function AdminDashboard({
                               <td>
                                 <div className="font-bold text-white text-sm flex items-center gap-2">
                                   <span>{item.full_name}</span>
-                                  {item.ticket_code === tickets[0]?.ticket_code && (
-                                    <span className="badge-new-attendee" title="Most recent attendee registration">
-                                      ✨ NEW
-                                    </span>
-                                  )}
+                                  <AnimatePresence>
+                                    {isTicketNew(item) && (
+                                      <motion.span
+                                        initial={{ opacity: 0, scale: 0.8 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
+                                        className="badge-new-attendee"
+                                        title="New registration (Expires in 15 mins or hover/click to dismiss)"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          markTicketAsRead(item.ticket_code);
+                                        }}
+                                      >
+                                        ✨ NEW
+                                      </motion.span>
+                                    )}
+                                  </AnimatePresence>
                                   {isDuplicate && (
                                     <span className="duplicate-tag" title="Potential duplicate student entry detected">
                                       ⚠️ {isDuplicateId ? 'Duplicate ID' : 'Duplicate Name'}
@@ -1459,6 +1513,8 @@ export default function AdminDashboard({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ type: "spring", stiffness: 450, damping: 30 }}
+                        onMouseEnter={() => markTicketAsRead(item.ticket_code)}
+                        onClick={() => markTicketAsRead(item.ticket_code)}
                         className={`${isHighlighted ? 'row-highlight-pulse' : ''} ${isDuplicate ? 'row-duplicate-warn' : ''}`}
                       >
                         {/* Dynamic 1-to-N Auto-Increment Sequential Number */}
@@ -1471,11 +1527,23 @@ export default function AdminDashboard({
                         <td>
                           <div className="font-bold text-white text-sm flex items-center gap-2">
                             <span>{item.full_name}</span>
-                            {item.ticket_code === tickets[0]?.ticket_code && (
-                              <span className="badge-new-attendee" title="Most recent attendee registration">
-                                ✨ NEW
-                              </span>
-                            )}
+                            <AnimatePresence>
+                              {isTicketNew(item) && (
+                                <motion.span
+                                  initial={{ opacity: 0, scale: 0.8 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
+                                  className="badge-new-attendee"
+                                  title="New registration (Expires in 15 mins or hover/click to dismiss)"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    markTicketAsRead(item.ticket_code);
+                                  }}
+                                >
+                                  ✨ NEW
+                                </motion.span>
+                              )}
+                            </AnimatePresence>
                             {isDuplicate && (
                               <span className="duplicate-tag" title="Potential duplicate student entry detected">
                                 ⚠️ {isDuplicateId ? 'Duplicate ID' : 'Duplicate Name'}
