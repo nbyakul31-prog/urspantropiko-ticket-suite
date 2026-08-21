@@ -129,11 +129,13 @@ export default function AdminDashboard({
   onBulkVerify,
   onAdmitStudent,
   onDeleteAttendee,
+  onFlushDatabase,
   livePings = [],
   highlightedCode = null,
   eventName = "URSPANTROPIKO: URSP Acquaintance Party 2026",
   eventLogo = null
 }) {
+  const [showFlushModal, setShowFlushModal] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState('ALL');
   const [selectedSection, setSelectedSection] = useState('ALL');
   const [selectedYearLevel, setSelectedYearLevel] = useState('ALL');
@@ -1200,6 +1202,23 @@ export default function AdminDashboard({
                 🏛️ {groupByCollege ? 'College Dividers: ON' : 'College Dividers: OFF'}
               </motion.button>
 
+              {/* Complete Database Flush / Reset Button */}
+              <motion.button
+                type="button"
+                className="btn-dup-filter"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setShowFlushModal(true)}
+                title="Flush all attendee records for fresh event testing"
+                style={{
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1.5px solid rgba(239, 68, 68, 0.4)',
+                  color: '#FCA5A5'
+                }}
+              >
+                🧹 Flush Masterlist
+              </motion.button>
+
               {/* Bulk Verify Button */}
               {selectedSection !== 'ALL' && (
                 <motion.button
@@ -1214,217 +1233,252 @@ export default function AdminDashboard({
             </div>
           </div>
 
-          {/* Masterlist Data Table with Auto-Incremented Sequential Numbers */}
-          <div className="table-responsive">
-            <table className="master-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '50px', textAlign: 'center' }}>#</th>
-                  <th style={{ width: '90px' }}>Ticket Ref</th>
-                  <th>Student Name &amp; ID</th>
-                  <th>Collegiate Department</th>
-                  <th>Section &amp; Year</th>
-                  <th>Payment Status</th>
-                  <th style={{ width: '130px', textAlign: 'center' }}>🌅 Day 1 (Sept 17)</th>
-                  <th style={{ width: '130px', textAlign: 'center' }}>🌴 Day 2 (Sept 18)</th>
-                  <th style={{ width: '170px', textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {groupByCollege && selectedDepartment === 'ALL' ? (
-                  collegeGroups.map((grp) => {
-                    const grpPaid = grp.students.filter(s => s.payment_status === 'paid').length;
-                    const grpPaidPct = grp.students.length > 0 ? Math.round((grpPaid / grp.students.length) * 100) : 0;
-                    return (
-                      <React.Fragment key={grp.collegeName}>
-                        {/* Grand Collegiate Division Section Divider */}
-                        <tr className="tr-college-divider">
-                          <td colSpan={9} style={{ padding: '0' }}>
-                            <div style={{
-                              background: `linear-gradient(90deg, ${grp.theme.solidColor}25 0%, rgba(15, 23, 42, 0.95) 100%)`,
-                              borderLeft: `5px solid ${grp.theme.solidColor}`,
-                              borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-                              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-                              padding: '10px 16px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              flexWrap: 'wrap',
-                              gap: '8px'
-                            }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span style={{ fontSize: '1.4rem' }}>{grp.theme.icon}</span>
-                                <div>
-                                  <div style={{ fontSize: '13px', fontWeight: '900', color: grp.theme.darkBadgeText, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                                    {grp.collegeName} ({grp.theme.short})
-                                  </div>
-                                  <div style={{ fontSize: '11px', color: '#94A3B8' }}>
-                                    Collegiate Department Division &bull; Surname Alphabetical (A-Z)
-                                  </div>
-                                </div>
-                              </div>
+          {/* Masterlist Data Table with Auto-Incremented Sequential Numbers & Auto-Scroll Viewports */}
+          {groupByCollege && selectedDepartment === 'ALL' ? (
+            <div className="college-divisions-container" style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+              {collegeGroups.map((grp) => {
+                const grpPaid = grp.students.filter(s => s.payment_status === 'paid').length;
+                const grpPaidPct = grp.students.length > 0 ? Math.round((grpPaid / grp.students.length) * 100) : 0;
+                return (
+                  <div
+                    key={grp.collegeName}
+                    className="college-section-box"
+                    style={{
+                      background: 'rgba(15, 23, 42, 0.7)',
+                      border: `1px solid ${grp.theme.solidColor}40`,
+                      borderRadius: '16px',
+                      overflow: 'hidden',
+                      boxShadow: '0 10px 30px rgba(0, 0, 0, 0.35)'
+                    }}
+                  >
+                    {/* Grand Collegiate Division Section Divider Header */}
+                    <div style={{
+                      background: `linear-gradient(90deg, ${grp.theme.solidColor}30 0%, rgba(15, 23, 42, 0.95) 100%)`,
+                      borderLeft: `6px solid ${grp.theme.solidColor}`,
+                      borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                      padding: '12px 18px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '10px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '1.5rem' }}>{grp.theme.icon}</span>
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: '900', color: grp.theme.darkBadgeText, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                            {grp.collegeName} ({grp.theme.short})
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                            Collegiate Department Division &bull; Surname Alphabetical (A-Z) &bull; Auto-Scroll Viewport
+                          </div>
+                        </div>
+                      </div>
 
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                <span className="college-stat-pill">👥 {grp.students.length} Enrolled</span>
-                                <span className="college-stat-pill" style={{ color: '#6EE7B7', borderColor: 'rgba(110, 231, 183, 0.3)' }}>
-                                  💳 {grpPaid} Paid ({grpPaidPct}%)
-                                </span>
-                                <span className="college-stat-pill" style={{ color: '#FDE68A', borderColor: 'rgba(253, 230, 138, 0.3)' }}>
-                                  🌅 Day 1: {grp.students.filter(s => s.day1_status === 'attended').length}
-                                </span>
-                                <span className="college-stat-pill" style={{ color: '#DDD6FE', borderColor: 'rgba(221, 214, 254, 0.3)' }}>
-                                  🌴 Day 2: {grp.students.filter(s => s.day2_status === 'attended').length}
-                                </span>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span className="college-stat-pill">👥 {grp.students.length} Enrolled</span>
+                        <span className="college-stat-pill" style={{ color: '#6EE7B7', borderColor: 'rgba(110, 231, 183, 0.3)' }}>
+                          💳 {grpPaid} Paid ({grpPaidPct}%)
+                        </span>
+                        <span className="college-stat-pill" style={{ color: '#FDE68A', borderColor: 'rgba(253, 230, 138, 0.3)' }}>
+                          🌅 Day 1: {grp.students.filter(s => s.day1_status === 'attended').length}
+                        </span>
+                        <span className="college-stat-pill" style={{ color: '#DDD6FE', borderColor: 'rgba(221, 214, 254, 0.3)' }}>
+                          🌴 Day 2: {grp.students.filter(s => s.day2_status === 'attended').length}
+                        </span>
+                      </div>
+                    </div>
 
-                        {grp.students.map((item, studentIdx) => {
-                          const theme = getCollegeTheme(item.department);
-                          const isHighlighted = highlightedCode === item.ticket_code;
-                          const isDay1 = item.day1_status === 'attended';
-                          const isDay2 = item.day2_status === 'attended';
+                    {/* Auto-Scroll Table Viewport inside this College */}
+                    <div className="college-scroll-viewport" style={{ maxHeight: '480px', overflowY: 'auto', overflowX: 'auto' }}>
+                      <table className="master-table" style={{ margin: 0, width: '100%' }}>
+                        <thead style={{ position: 'sticky', top: 0, zIndex: 3, background: '#0F172A' }}>
+                          <tr>
+                            <th style={{ width: '50px', textAlign: 'center' }}>#</th>
+                            <th style={{ width: '90px' }}>Ticket Ref</th>
+                            <th>Student Name &amp; ID</th>
+                            <th>Collegiate Department</th>
+                            <th>Section &amp; Year</th>
+                            <th>Payment Status</th>
+                            <th style={{ width: '130px', textAlign: 'center' }}>🌅 Day 1 (Sept 17)</th>
+                            <th style={{ width: '130px', textAlign: 'center' }}>🌴 Day 2 (Sept 18)</th>
+                            <th style={{ width: '170px', textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {grp.students.length === 0 ? (
+                            <tr>
+                              <td colSpan={9} style={{ textAlign: 'center', padding: '36px', color: '#94A3B8', fontSize: '0.9rem' }}>
+                                No students currently registered under {grp.collegeName}.
+                              </td>
+                            </tr>
+                          ) : (
+                            grp.students.map((item, studentIdx) => {
+                              const theme = getCollegeTheme(item.department);
+                              const isHighlighted = highlightedCode === item.ticket_code;
+                              const isDay1 = item.day1_status === 'attended';
+                              const isDay2 = item.day2_status === 'attended';
 
-                          const idKey = (item.student_id || '').trim().toLowerCase();
-                          const nameKey = (item.full_name || '').trim().toLowerCase();
-                          const isDuplicateId = idKey && duplicatesMap.idCounts[idKey] > 1;
-                          const isDuplicateName = nameKey && duplicatesMap.nameCounts[nameKey] > 1;
-                          const isDuplicate = isDuplicateId || isDuplicateName;
+                              const idKey = (item.student_id || '').trim().toLowerCase();
+                              const nameKey = (item.full_name || '').trim().toLowerCase();
+                              const isDuplicateId = idKey && duplicatesMap.idCounts[idKey] > 1;
+                              const isDuplicateName = nameKey && duplicatesMap.nameCounts[nameKey] > 1;
+                              const isDuplicate = isDuplicateId || isDuplicateName;
 
-                          return (
-                            <motion.tr
-                              layout
-                              key={item.ticket_code || item.id}
-                              initial={{ opacity: 0, y: 8 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, scale: 0.95 }}
-                              transition={{ type: "spring", stiffness: 450, damping: 30 }}
-                              onClick={() => markTicketAsRead(item.ticket_code)}
-                              className={`${isHighlighted ? 'row-highlight-pulse' : ''} ${isDuplicate ? 'row-duplicate-warn' : ''}`}
-                              style={{ cursor: 'pointer' }}
-                            >
-                              <td style={{ textAlign: 'center' }}>
-                                <span className="row-seq-badge">#{studentIdx + 1}</span>
-                              </td>
-                              <td>
-                                <span className="ticket-code-pill font-mono">{item.ticket_code}</span>
-                              </td>
-                              <td>
-                                <div className="font-bold text-white text-sm flex items-center gap-2">
-                                  <span>{item.full_name}</span>
-                                  <AnimatePresence>
-                                    {isTicketNew(item) && (
-                                      <motion.span
-                                        initial={{ opacity: 0, scale: 0.8 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
-                                        className="badge-new-attendee"
-                                        title="✨ New Registration (Click row or badge to mark as read)"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          markTicketAsRead(item.ticket_code);
-                                        }}
-                                      >
-                                        ✨ NEW
-                                      </motion.span>
-                                    )}
-                                  </AnimatePresence>
-                                  {isDuplicate && (
-                                    <span className="duplicate-tag" title="Potential duplicate student entry detected">
-                                      ⚠️ {isDuplicateId ? 'Duplicate ID' : 'Duplicate Name'}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-xs text-muted font-mono">ID: {item.student_id}</div>
-                              </td>
-                              <td>
-                                <span
-                                  className="status-pill"
-                                  style={{
-                                    backgroundColor: theme.darkBadgeBg,
-                                    color: theme.darkBadgeText,
-                                    border: `1px solid ${theme.darkBadgeBorder}`,
-                                    fontWeight: '700'
-                                  }}
-                                >
-                                  {theme.icon} {theme.name}
-                                </span>
-                              </td>
-                              <td>
-                                <div className="section-pill">{item.program_section}</div>
-                                <div className="year-tag">{item.year_level || '1st Year'}</div>
-                              </td>
-                              <td>
-                                <span
-                                  onClick={() => onTogglePayment(item.ticket_code)}
+                              return (
+                                <motion.tr
+                                  layout
+                                  key={item.ticket_code || item.id}
+                                  initial={{ opacity: 0, y: 8 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, scale: 0.95 }}
+                                  transition={{ type: "spring", stiffness: 450, damping: 30 }}
+                                  onClick={() => markTicketAsRead(item.ticket_code)}
+                                  className={`${isHighlighted ? 'row-highlight-pulse' : ''} ${isDuplicate ? 'row-duplicate-warn' : ''}`}
                                   style={{ cursor: 'pointer' }}
-                                  title="Click to toggle payment status"
-                                  className={`status-pill ${item.payment_status === 'paid' ? 'status-paid' : 'status-unpaid'}`}
                                 >
-                                  {item.payment_status === 'paid' ? '💳 Paid & Verified' : '⏳ Unpaid'}
-                                </span>
-                              </td>
-                              
-                              {/* Day 1 Check-In Column */}
-                              <td style={{ textAlign: 'center' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleDay(item.ticket_code, 'day1')}
-                                  className={`gate-checkin-btn ${isDay1 ? 'attended' : 'absent'}`}
-                                  title="Click to toggle Day 1 attendance"
-                                >
-                                  {isDay1 ? `✅ In (${item.day1_time || '08:14 AM'})` : '❌ Absent'}
-                                </button>
-                              </td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span className="row-seq-badge">#{studentIdx + 1}</span>
+                                  </td>
+                                  <td>
+                                    <span className="ticket-code-pill font-mono">{item.ticket_code}</span>
+                                  </td>
+                                  <td>
+                                    <div className="font-bold text-white text-sm flex items-center gap-2">
+                                      <span>{item.full_name}</span>
+                                      <AnimatePresence>
+                                        {isTicketNew(item) && (
+                                          <motion.span
+                                            initial={{ opacity: 0, scale: 0.8 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
+                                            className="badge-new-attendee"
+                                            title="✨ New Registration (Click row or badge to mark as read)"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              markTicketAsRead(item.ticket_code);
+                                            }}
+                                          >
+                                            ✨ NEW
+                                          </motion.span>
+                                        )}
+                                      </AnimatePresence>
+                                      {isDuplicate && (
+                                        <span className="duplicate-tag" title="Potential duplicate student entry detected">
+                                          ⚠️ {isDuplicateId ? 'Duplicate ID' : 'Duplicate Name'}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-muted font-mono">ID: {item.student_id}</div>
+                                  </td>
+                                  <td>
+                                    <span
+                                      className="status-pill"
+                                      style={{
+                                        backgroundColor: theme.darkBadgeBg,
+                                        color: theme.darkBadgeText,
+                                        border: `1px solid ${theme.darkBadgeBorder}`,
+                                        fontWeight: '700'
+                                      }}
+                                    >
+                                      {theme.icon} {theme.name}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <div className="section-pill">{item.program_section}</div>
+                                    <div className="year-tag">{item.year_level || '1st Year'}</div>
+                                  </td>
+                                  <td>
+                                    <span
+                                      onClick={() => onTogglePayment(item.ticket_code)}
+                                      style={{ cursor: 'pointer' }}
+                                      title="Click to toggle payment status"
+                                      className={`status-pill ${item.payment_status === 'paid' ? 'status-paid' : 'status-unpaid'}`}
+                                    >
+                                      {item.payment_status === 'paid' ? '💳 Paid & Verified' : '⏳ Unpaid'}
+                                    </span>
+                                  </td>
+                                  
+                                  {/* Day 1 Check-In Column */}
+                                  <td style={{ textAlign: 'center' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleDay(item.ticket_code, 'day1')}
+                                      className={`gate-checkin-btn ${isDay1 ? 'attended' : 'absent'}`}
+                                      title="Click to toggle Day 1 attendance"
+                                    >
+                                      {isDay1 ? `✅ In (${item.day1_time || '08:14 AM'})` : '❌ Absent'}
+                                    </button>
+                                  </td>
 
-                              {/* Day 2 Check-In Column */}
-                              <td style={{ textAlign: 'center' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleDay(item.ticket_code, 'day2')}
-                                  className={`gate-checkin-btn ${isDay2 ? 'attended' : 'absent'}`}
-                                  title="Click to toggle Day 2 attendance"
-                                >
-                                  {isDay2 ? `✅ In (${item.day2_time || '08:45 PM'})` : '❌ Absent'}
-                                </button>
-                              </td>
+                                  {/* Day 2 Check-In Column */}
+                                  <td style={{ textAlign: 'center' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleDay(item.ticket_code, 'day2')}
+                                      className={`gate-checkin-btn ${isDay2 ? 'attended' : 'absent'}`}
+                                      title="Click to toggle Day 2 attendance"
+                                    >
+                                      {isDay2 ? `✅ In (${item.day2_time || '08:45 PM'})` : '❌ Absent'}
+                                    </button>
+                                  </td>
 
-                              {/* Actions: Verify/Undo + Animated Remove Row Button */}
-                              <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>
-                                  <motion.button
-                                    className={`btn-action ${item.payment_status === 'paid' ? 'btn-undo' : 'btn-verify'}`}
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={() => onTogglePayment(item.ticket_code)}
-                                    title={item.payment_status === 'paid' ? 'Revert to unpaid' : 'Mark as paid'}
-                                    style={{ minWidth: '76px' }}
-                                  >
-                                    {item.payment_status === 'paid' ? 'Undo' : 'Verify'}
-                                  </motion.button>
+                                  {/* Actions: Verify/Undo + Animated Remove Row Button */}
+                                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>
+                                      <motion.button
+                                        className={`btn-action ${item.payment_status === 'paid' ? 'btn-undo' : 'btn-verify'}`}
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={() => onTogglePayment(item.ticket_code)}
+                                        title={item.payment_status === 'paid' ? 'Revert to unpaid' : 'Mark as paid'}
+                                        style={{ minWidth: '76px' }}
+                                      >
+                                        {item.payment_status === 'paid' ? 'Undo' : 'Verify'}
+                                      </motion.button>
 
-                                  <motion.button
-                                    className="btn-action-delete animated-trash-btn"
-                                    whileHover={{ scale: 1.18, rotate: [0, -10, 10, -5, 5, 0], transition: { duration: 0.35 } }}
-                                    whileTap={{ scale: 0.88 }}
-                                    onClick={() => setAttendeeToDelete(item)}
-                                    title="Remove student from masterlist (Delete duplicate)"
-                                  >
-                                    <motion.span whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 400 }}>
-                                      🗑️
-                                    </motion.span>
-                                  </motion.button>
-                                </div>
-                              </td>
-                            </motion.tr>
-                          );
-                        })}
-                      </React.Fragment>
-                    );
-                  })
-                ) : (
-                  filtered.map((item, idx) => {
+                                      <motion.button
+                                        className="btn-action-delete animated-trash-btn"
+                                        whileHover={{ scale: 1.18, rotate: [0, -10, 10, -5, 5, 0], transition: { duration: 0.35 } }}
+                                        whileTap={{ scale: 0.88 }}
+                                        onClick={() => setAttendeeToDelete(item)}
+                                        title="Remove student from masterlist (Delete duplicate)"
+                                      >
+                                        <motion.span whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 400 }}>
+                                          🗑️
+                                        </motion.span>
+                                      </motion.button>
+                                    </div>
+                                  </td>
+                                </motion.tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="table-responsive" style={{ maxHeight: '650px', overflowY: 'auto' }}>
+              <table className="master-table">
+                <thead style={{ position: 'sticky', top: 0, zIndex: 3, background: '#0F172A' }}>
+                  <tr>
+                    <th style={{ width: '50px', textAlign: 'center' }}>#</th>
+                    <th style={{ width: '90px' }}>Ticket Ref</th>
+                    <th>Student Name &amp; ID</th>
+                    <th>Collegiate Department</th>
+                    <th>Section &amp; Year</th>
+                    <th>Payment Status</th>
+                    <th style={{ width: '130px', textAlign: 'center' }}>🌅 Day 1 (Sept 17)</th>
+                    <th style={{ width: '130px', textAlign: 'center' }}>🌴 Day 2 (Sept 18)</th>
+                    <th style={{ width: '170px', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((item, idx) => {
                     const theme = getCollegeTheme(item.department);
                     const isHighlighted = highlightedCode === item.ticket_code;
                     const isDay1 = item.day1_status === 'attended';
@@ -1564,9 +1618,8 @@ export default function AdminDashboard({
                         </td>
                       </motion.tr>
                     );
-                  })
-                )}
-                {filtered.length === 0 && (
+                  })}
+                  {filtered.length === 0 && (
                   <tr>
                     <td colSpan="9" className="text-center py-8 text-muted">
                       {showDuplicatesOnly 
@@ -1578,6 +1631,7 @@ export default function AdminDashboard({
               </tbody>
             </table>
           </div>
+          )}
         </motion.section>
       )}
 
@@ -2500,6 +2554,92 @@ export default function AdminDashboard({
                   🗑️ Yes, Delete
                 </motion.button>
               </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Complete Database Flush Confirmation Modal */}
+      {showFlushModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            padding: '20px'
+          }}
+          onClick={() => setShowFlushModal(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'linear-gradient(135deg, #1E1B4B 0%, #0F172A 100%)',
+              border: '2px solid #EF4444',
+              borderRadius: '20px',
+              padding: '28px',
+              maxWidth: '460px',
+              width: '100%',
+              boxShadow: '0 25px 60px rgba(239, 68, 68, 0.35)',
+              color: '#FFFFFF'
+            }}
+          >
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <div style={{ fontSize: '3.2rem', marginBottom: '10px' }}>🧹</div>
+              <h3 style={{ fontSize: '1.4rem', fontWeight: '900', color: '#F87171', margin: 0 }}>
+                Flush Entire Masterlist?
+              </h3>
+              <p style={{ fontSize: '0.88rem', color: '#CBD5E1', marginTop: '10px', lineHeight: '1.5' }}>
+                Are you sure you want to permanently clear all <strong style={{ color: '#FBBF24' }}>{tickets.length} attendee records</strong>? This will wipe all test registrations and reset the system database to a clean slate.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <motion.button
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                style={{
+                  padding: '12px 20px',
+                  borderRadius: '12px',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: '#FFFFFF',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+                onClick={() => setShowFlushModal(false)}
+              >
+                Cancel
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.04, backgroundColor: '#DC2626' }}
+                whileTap={{ scale: 0.96 }}
+                style={{
+                  padding: '12px 24px',
+                  borderRadius: '12px',
+                  background: '#EF4444',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  fontWeight: '900',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(239, 68, 68, 0.5)'
+                }}
+                onClick={() => {
+                  if (onFlushDatabase) {
+                    onFlushDatabase();
+                  }
+                  setShowFlushModal(false);
+                }}
+              >
+                🧹 Yes, Flush Database
+              </motion.button>
             </div>
           </motion.div>
         </div>

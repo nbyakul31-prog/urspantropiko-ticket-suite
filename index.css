@@ -1972,6 +1972,36 @@ img { max-width: 100%; height: auto; }
   to { width: 0%; }
 }
 
+/* College Division Auto-Scroll Viewport for 1400+ Attendees */
+.college-scroll-viewport {
+  max-height: 480px;
+  overflow-y: auto;
+  overflow-x: auto;
+  border-radius: 0 0 16px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 209, 0, 0.4) rgba(15, 23, 42, 0.7);
+}
+
+.college-scroll-viewport::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.college-scroll-viewport::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.8);
+  border-radius: 4px;
+}
+
+.college-scroll-viewport::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(255, 209, 0, 0.4), rgba(255, 107, 53, 0.4));
+  border-radius: 6px;
+}
+
+.college-scroll-viewport::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #FFD100, #FF6B35);
+}
+
+
 
 
 

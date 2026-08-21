@@ -11,18 +11,7 @@ import { broadcastCloudUpdate, listenToCloudUpdates } from './lib/cloudSync';
 const STORAGE_KEY = 'ursp_masterlist_attendees_v4';
 const DELETED_KEY = 'ursp_masterlist_deleted_v4';
 
-const SEED_FALLBACK = [
-  { id: '1', ticket_code: 'TKT-10001', student_id: '2022-01001', full_name: 'John Carlo Reyes', department: 'College of Education', year_level: '3rd Year', program_section: 'BSED 3-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:14 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
-  { id: '2', ticket_code: 'TKT-10002', student_id: '2022-01002', full_name: 'Angela Mae Diaz', department: 'College of Education', year_level: '3rd Year', program_section: 'BEED 3-B', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: '3', ticket_code: 'TKT-10003', student_id: '2023-02001', full_name: 'Mark Kevin Cruz', department: 'College of Social Sciences', year_level: '2nd Year', program_section: 'AB-POLSCI 2-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:26 AM', day2_status: 'attended', day2_time: '08:15 PM', attendance_status: 'attended' },
-  { id: '4', ticket_code: 'TKT-10004', student_id: '2021-03001', full_name: 'Sophia Nicole Tan', department: 'College of Business', year_level: '4th Year', program_section: 'BSBA 4-B', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: '5', ticket_code: 'TKT-10005', student_id: '2024-04001', full_name: 'Joshua Morales', department: 'College of Social Sciences', year_level: '1st Year', program_section: 'BS-PSYCH 1-A', payment_status: 'paid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: '6', ticket_code: 'TKT-10006', student_id: '2023-02002', full_name: 'Patricia Anne Gomez', department: 'College of Education', year_level: '2nd Year', program_section: 'BSED 2-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:35 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
-  { id: '7', ticket_code: 'TKT-10007', student_id: '2022-01003', full_name: 'Gabriel Santos', department: 'College of Social Sciences', year_level: '3rd Year', program_section: 'AB-SOC 3-A', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: '8', ticket_code: 'TKT-10008', student_id: '2024-04002', full_name: 'Chloe Denise Lim', department: 'College of Business', year_level: '1st Year', program_section: 'BSBA 1-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:22 AM', day2_status: 'attended', day2_time: '08:30 PM', attendance_status: 'attended' },
-  { id: '9', ticket_code: 'TKT-10009', student_id: '2023-03014', full_name: 'Danilo Mendoza Jr.', department: 'College of Business', year_level: '2nd Year', program_section: 'BSA 2-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:40 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
-  { id: '10', ticket_code: 'TKT-10010', student_id: '2021-01099', full_name: 'Bea Marie Alcantara', department: 'College of Education', year_level: '4th Year', program_section: 'BTLED 4-A', payment_status: 'paid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' }
-];
+const SEED_FALLBACK = [];
 
 function getDeletedCodes() {
   try {
@@ -620,6 +609,27 @@ export default function App() {
     return deleted;
   };
 
+  // 6. Complete Database Flush Handler (Clears all records for pristine testing)
+  const handleFlushDatabase = async () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(DELETED_KEY);
+      localStorage.removeItem('cachedEventTickets');
+    } catch (e) {}
+    setTickets([]);
+    broadcastUpdate([], {
+      type: 'deletion',
+      title: '🧹 MASTERLIST FLUSHED',
+      message: 'All attendee records have been cleanly flushed for fresh event testing.'
+    });
+
+    try {
+      if (supabase && typeof supabase.from === 'function') {
+        supabase.from('attendees').delete().neq('ticket_code', 'SCHEMA_GUARD').then(() => {}).catch(() => {});
+      }
+    } catch (e) {}
+  };
+
   const handleNavigate = (newRoute) => {
     if (newRoute === 'admin' && !isAdminAuthed) {
       setPendingRoute('admin');
@@ -870,6 +880,7 @@ export default function App() {
             onBulkVerify={handleBulkVerify}
             onAdmitStudent={handleAdmitStudent}
             onDeleteAttendee={handleDeleteAttendee}
+            onFlushDatabase={handleFlushDatabase}
             livePings={livePings}
             highlightedCode={highlightedCode}
           />
