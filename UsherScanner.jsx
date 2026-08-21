@@ -499,7 +499,7 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
           )}
         </motion.div>
 
-        {/* Manual Code Input Bar */}
+        {/* Manual Code Input Bar - Fluid & Never Cut Off */}
         <motion.form
           onSubmit={(e) => { e.preventDefault(); handleScan(manualCode); }}
           className="manual-input-form"
@@ -507,21 +507,48 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 10 }}
           transition={{ delay: 0.4, duration: 0.3 }}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%', boxSizing: 'border-box' }}
         >
-          <motion.input
+          <input
             type="text"
             placeholder="Type ticket code (e.g. TKT-10001)..."
             value={manualCode}
             onChange={(e) => setManualCode(e.target.value)}
             className="manual-input"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              height: '44px',
+              padding: '8px 10px',
+              fontSize: '13px',
+              boxSizing: 'border-box',
+              background: 'rgba(0, 0, 0, 0.45)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '8px',
+              color: '#FFF'
+            }}
           />
           <motion.button
             type="submit"
             className="btn-manual-scan"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.96 }}
+            style={{
+              flexShrink: 0,
+              height: '44px',
+              padding: '0 14px',
+              fontSize: '13px',
+              fontWeight: '800',
+              whiteSpace: 'nowrap',
+              boxSizing: 'border-box',
+              background: 'linear-gradient(135deg, #FF6B35, #FFD100)',
+              color: '#000',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer'
+            }}
           >
-            Scan Code
+            ⚡ Scan
           </motion.button>
         </motion.form>
 

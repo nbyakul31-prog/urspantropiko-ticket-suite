@@ -347,10 +347,12 @@ export default function StudentPortal({ onTicketGenerated }) {
                 />
               </div>
 
-              {/* Row 2: First Name + Middle Initial (Optional) */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: '10px', alignItems: 'flex-start' }}>
-                <div className="portal-form-group" style={{ margin: 0 }}>
-                  <label className="portal-label">First Name (Pangalan) *</label>
+              {/* Row 2: First Name + Middle Initial (Optional) - Strictly Leveled */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: '8px', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label className="portal-label" style={{ fontSize: '11px', whiteSpace: 'nowrap', height: '18px', display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
+                    First Name (Pangalan) *
+                  </label>
                   <input
                     type="text"
                     placeholder="e.g. Luigi Emanuel"
@@ -363,14 +365,16 @@ export default function StudentPortal({ onTicketGenerated }) {
                       border: '1.5px solid rgba(255, 255, 255, 0.15)',
                       boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)',
                       height: '44px',
-                      fontSize: '14px'
+                      fontSize: '14px',
+                      width: '100%',
+                      boxSizing: 'border-box'
                     }}
                   />
                 </div>
 
-                <div className="portal-form-group" style={{ margin: 0 }}>
-                  <label className="portal-label" style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    M.I. <span style={{ opacity: 0.6, fontSize: '10px' }}>(Opt)</span>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label className="portal-label" style={{ fontSize: '11px', textAlign: 'center', whiteSpace: 'nowrap', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '6px' }}>
+                    M.I. <span style={{ opacity: 0.6, fontSize: '10px', marginLeft: '2px' }}>(Opt)</span>
                   </label>
                   <input
                     type="text"
@@ -385,7 +389,9 @@ export default function StudentPortal({ onTicketGenerated }) {
                       boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)',
                       textAlign: 'center',
                       height: '44px',
-                      fontSize: '14px'
+                      fontSize: '14px',
+                      width: '100%',
+                      boxSizing: 'border-box'
                     }}
                   />
                 </div>
