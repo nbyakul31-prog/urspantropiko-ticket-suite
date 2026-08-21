@@ -2095,50 +2095,135 @@ export default function AdminDashboard({
                       </tr>
                     </thead>
                     <tbody>
-                      {filtered.slice(0, 15).map((d, idx) => {
-                        const theme = getCollegeTheme(d.department);
-                        const isPaid = d.payment_status === 'paid';
-                        const isDay1 = d.day1_status === 'attended';
-                        const isDay2 = d.day2_status === 'attended';
+                      {collegeGroups.map((grp, grpIdx) => {
+                        const grpPaid = grp.students.filter(s => s.payment_status === 'paid').length;
+                        const grpDay1 = grp.students.filter(s => s.day1_status === 'attended').length;
+                        const grpDay2 = grp.students.filter(s => s.day2_status === 'attended').length;
+                        const grpPaidPct = grp.students.length > 0 ? Math.round((grpPaid / grp.students.length) * 100) : 0;
 
                         return (
-                          <tr key={d.ticket_code} style={{ background: theme.rowBg, borderBottom: '1px solid #E2E8F0' }}>
-                            <td style={{ padding: '4px', textAlign: 'center', color: '#64748B', fontWeight: 'bold' }}>{idx + 1}</td>
-                            <td style={{ padding: '4px 6px', fontWeight: 'bold', fontFamily: 'monospace' }}>{d.ticket_code}</td>
-                            <td style={{ padding: '4px 6px', fontFamily: 'monospace' }}>{d.student_id}</td>
-                            <td style={{ padding: '4px 6px', fontWeight: 'bold', color: '#0F172A' }}>{d.full_name}</td>
-                            <td style={{ padding: '4px 6px' }}>
-                              <span style={{ background: theme.badgeBg, color: theme.badgeText, padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.68rem', border: `1px solid ${theme.badgeBorder}` }}>
-                                {theme.short} • {theme.name}
-                              </span>
-                            </td>
-                            <td style={{ padding: '4px', textAlign: 'center', fontWeight: 'bold' }}>{d.program_section}</td>
-                            <td style={{ padding: '4px', textAlign: 'center' }}>{d.year_level || '1st Year'}</td>
-                            <td style={{ padding: '4px', textAlign: 'center' }}>
-                              <span style={{ background: isPaid ? '#D1FAE5' : '#FEE2E2', color: isPaid ? '#065F46' : '#991B1B', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.68rem' }}>
-                                {isPaid ? '💳 PAID' : '⏳ UNPAID'}
-                              </span>
-                            </td>
-                            <td style={{ padding: '4px', textAlign: 'center' }}>
-                              <span style={{ background: isDay1 ? '#DCFCE7' : '#F1F5F9', color: isDay1 ? '#15803D' : '#64748B', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.68rem' }}>
-                                {isDay1 ? `✅ IN (${d.day1_time || '08:14 AM'})` : '❌ NOT IN'}
-                              </span>
-                            </td>
-                            <td style={{ padding: '4px', textAlign: 'center' }}>
-                              <span style={{ background: isDay2 ? '#EDE9FE' : '#F1F5F9', color: isDay2 ? '#5B21B6' : '#64748B', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.68rem' }}>
-                                {isDay2 ? `✅ IN (${d.day2_time || '08:45 PM'})` : '❌ NOT IN'}
-                              </span>
-                            </td>
-                          </tr>
+                          <React.Fragment key={grp.collegeName}>
+                            {/* Official Collegiate Department Banner Row */}
+                            <tr style={{ background: grp.theme.solidColor, color: '#FFFFFF' }}>
+                              <td
+                                colSpan={10}
+                                style={{
+                                  padding: '8px 12px',
+                                  fontWeight: '900',
+                                  fontSize: '0.82rem',
+                                  letterSpacing: '0.5px',
+                                  borderTop: '2px solid #0F172A',
+                                  borderBottom: '2px solid #0F172A',
+                                  textTransform: 'uppercase'
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '1.1rem' }}>{grp.theme.icon}</span>
+                                    <span>{grpIdx + 1}. {grp.collegeName} ({grp.theme.short})</span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.72rem' }}>
+                                    <span>👥 {grp.students.length} Enrolled</span>
+                                    <span style={{ background: 'rgba(0,0,0,0.25)', padding: '2px 8px', borderRadius: '4px' }}>
+                                      💳 {grpPaid} Paid ({grpPaidPct}%)
+                                    </span>
+                                    <span>🌅 Day 1: {grpDay1}</span>
+                                    <span>🌴 Day 2: {grpDay2}</span>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+
+                            {/* Students in this Department (Strictly Alphabetized by Surname) */}
+                            {grp.students.map((d, studentIdx) => {
+                              const theme = getCollegeTheme(d.department);
+                              const isPaid = d.payment_status === 'paid';
+                              const isDay1 = d.day1_status === 'attended';
+                              const isDay2 = d.day2_status === 'attended';
+
+                              return (
+                                <tr key={d.ticket_code} style={{ background: theme.rowBg, borderBottom: '1px solid #CBD5E1' }}>
+                                  <td style={{ padding: '4px', textAlign: 'center', color: '#64748B', fontWeight: 'bold' }}>
+                                    {studentIdx + 1}
+                                  </td>
+                                  <td style={{ padding: '4px 6px', fontWeight: 'bold', fontFamily: 'monospace' }}>
+                                    {d.ticket_code}
+                                  </td>
+                                  <td style={{ padding: '4px 6px', fontFamily: 'monospace' }}>
+                                    {d.student_id}
+                                  </td>
+                                  <td style={{ padding: '4px 6px', fontWeight: 'bold', color: '#0F172A' }}>
+                                    {d.full_name}
+                                  </td>
+                                  <td style={{ padding: '4px 6px' }}>
+                                    <span style={{
+                                      background: theme.badgeBg,
+                                      color: theme.badgeText,
+                                      padding: '1px 6px',
+                                      borderRadius: '4px',
+                                      fontWeight: 'bold',
+                                      fontSize: '0.68rem',
+                                      border: `1px solid ${theme.badgeBorder}`
+                                    }}>
+                                      {theme.short} • {theme.name}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '4px', textAlign: 'center', fontWeight: 'bold' }}>
+                                    {d.program_section}
+                                  </td>
+                                  <td style={{ padding: '4px', textAlign: 'center' }}>
+                                    {d.year_level || '1st Year'}
+                                  </td>
+                                  <td style={{ padding: '4px', textAlign: 'center' }}>
+                                    <span style={{
+                                      background: isPaid ? '#D1FAE5' : '#FEE2E2',
+                                      color: isPaid ? '#065F46' : '#991B1B',
+                                      padding: '1px 6px',
+                                      borderRadius: '4px',
+                                      fontWeight: 'bold',
+                                      fontSize: '0.68rem',
+                                      border: isPaid ? '1px solid #A7F3D0' : '1px solid #FECACA'
+                                    }}>
+                                      {isPaid ? '💳 PAID' : '⏳ UNPAID'}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '4px', textAlign: 'center' }}>
+                                    <span style={{
+                                      background: isDay1 ? '#DCFCE7' : '#F1F5F9',
+                                      color: isDay1 ? '#15803D' : '#64748B',
+                                      padding: '1px 6px',
+                                      borderRadius: '4px',
+                                      fontWeight: 'bold',
+                                      fontSize: '0.68rem',
+                                      border: isDay1 ? '1px solid #86EFAC' : '1px solid #CBD5E1'
+                                    }}>
+                                      {isDay1 ? `✅ IN (${d.day1_time || '08:14 AM'})` : '❌ NOT IN'}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '4px', textAlign: 'center' }}>
+                                    <span style={{
+                                      background: isDay2 ? '#EDE9FE' : '#F1F5F9',
+                                      color: isDay2 ? '#5B21B6' : '#64748B',
+                                      padding: '1px 6px',
+                                      borderRadius: '4px',
+                                      fontWeight: 'bold',
+                                      fontSize: '0.68rem',
+                                      border: isDay2 ? '1px solid #DDD6FE' : '1px solid #CBD5E1'
+                                    }}>
+                                      {isDay2 ? `✅ IN (${d.day2_time || '08:45 PM'})` : '❌ NOT IN'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </React.Fragment>
                         );
                       })}
                     </tbody>
                   </table>
-                  {filtered.length > 15 && (
-                    <div style={{ padding: '8px', textAlign: 'center', background: '#F8FAFC', color: '#64748B', fontSize: '0.75rem', fontStyle: 'italic' }}>
-                      Showing preview of top 15 records. Download Excel (.xls) to view all {filtered.length} attendees with full formatting.
-                    </div>
-                  )}
+                  <div style={{ padding: '8px 12px', textAlign: 'right', background: '#F8FAFC', color: '#64748B', fontSize: '0.75rem', fontWeight: 'bold', borderTop: '1px solid #E2E8F0' }}>
+                    ⚡ URSPANTROPIKO 2026 • Official 3-Colleges Masterlist Simulator ({filtered.length} Total Attendees)
+                  </div>
                 </div>
               </div>
             </div>
