@@ -161,9 +161,29 @@ export default function AdminDashboard({
   const [showExcelPreviewModal, setShowExcelPreviewModal] = useState(false);
   const [previewPaperSize, setPreviewPaperSize] = useState('a4_landscape');
 
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
-  const studentRegisterUrl = `${origin}/register`;
-  const masterUsherUrl = `${origin}/usher?token=${masterUsherToken}`;
+  // Dynamic Public Live Domain (Defaults to Vercel production or custom Cloudflare tunnel)
+  const [publicDomain, setPublicDomain] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ursp_public_domain_config');
+      if (saved) return saved;
+      if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+        return window.location.origin;
+      }
+    } catch (e) {}
+    return 'https://urspantropiko-ticket-suite.vercel.app';
+  });
+
+  const handleSetPublicDomain = (val) => {
+    const clean = val.trim();
+    setPublicDomain(clean);
+    try {
+      localStorage.setItem('ursp_public_domain_config', clean);
+    } catch (e) {}
+  };
+
+  const activeBaseUrl = (publicDomain || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173')).replace(/\/+$/, '');
+  const studentRegisterUrl = `${activeBaseUrl}/`;
+  const masterUsherUrl = `${activeBaseUrl}/?view=usher&token=${masterUsherToken}`;
 
   // Duplicate Tracking across dataset
   const duplicatesMap = useMemo(() => {
@@ -1717,56 +1737,270 @@ export default function AdminDashboard({
         </div>
       )}
 
-      {/* MODAL 2: STUDENT REGISTRATION QR */}
+      {/* MODAL 2: STUDENT REGISTRATION QR (Live Vercel / Cloudflare Tunnel Support) */}
       {showStudentQRModal && (
         <div className="modal-backdrop" onClick={() => setShowStudentQRModal(false)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()}>
+          <div className="modal-card" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>📄 Public Student Registration QR</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.3rem' }}>📄</span>
+                <div>
+                  <h3 style={{ margin: 0 }}>Public Student Registration QR</h3>
+                  <p style={{ margin: 0, fontSize: '0.72rem', color: '#94A3B8' }}>Project this QR for students on mobile phones to scan &amp; register</p>
+                </div>
+              </div>
               <motion.button
                 className="btn-close"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => setShowStudentQRModal(false)}
               >
                 ✕
               </motion.button>
             </div>
-            <div className="modal-body text-center">
-              <p className="text-xs text-muted mb-3">Project this QR on screens or print for students to scan and register.</p>
-              <div className="qr-box-large">
-                <QRCode value={studentRegisterUrl} size={220} level="H" />
+
+            <div className="modal-body text-center" style={{ padding: '20px 24px' }}>
+              {/* Domain Switcher & Cloudflare Tunnel Bar */}
+              <div style={{
+                background: 'rgba(0, 0, 0, 0.45)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '10px',
+                padding: '12px',
+                marginBottom: '16px',
+                textAlign: 'left'
+              }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: '800', color: '#FFD100', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>🌐 LIVE TARGET DOMAIN / TUNNEL:</span>
+                  <span style={{ color: '#94A3B8', fontSize: '0.7rem' }}>Editable</span>
+                </div>
+                <input
+                  type="text"
+                  value={publicDomain}
+                  onChange={(e) => handleSetPublicDomain(e.target.value)}
+                  placeholder="https://your-domain.vercel.app or https://xxx.trycloudflare.com"
+                  style={{
+                    width: '100%',
+                    background: 'rgba(0, 0, 0, 0.6)',
+                    border: '1px solid rgba(56, 189, 248, 0.4)',
+                    color: '#38BDF8',
+                    fontFamily: 'monospace',
+                    fontSize: '12px',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    marginBottom: '8px'
+                  }}
+                />
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleSetPublicDomain('https://urspantropiko-ticket-suite.vercel.app')}
+                    style={{
+                      background: 'rgba(56, 189, 248, 0.15)',
+                      border: '1px solid rgba(56, 189, 248, 0.35)',
+                      color: '#38BDF8',
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ☁️ Vercel App
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetPublicDomain(typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173')}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      color: '#CBD5E1',
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ⚡ Current Host
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetPublicDomain('http://localhost:5173')}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      color: '#CBD5E1',
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    💻 Localhost
+                  </button>
+                </div>
               </div>
-              <div className="modal-link-box">
-                <div className="font-mono text-xs text-green break-all">{studentRegisterUrl}</div>
+
+              {/* High-Contrast Crisp QR Code */}
+              <div className="qr-box-large" style={{ background: '#FFFFFF', padding: '16px', borderRadius: '14px', display: 'inline-block', boxShadow: '0 0 30px rgba(255, 209, 0, 0.3)' }}>
+                <QRCode value={studentRegisterUrl} size={230} level="H" includeMargin={true} />
+              </div>
+
+              <div className="modal-link-box" style={{ marginTop: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                <div className="font-mono text-xs text-green break-all" style={{ textAlign: 'left', flex: 1 }}>{studentRegisterUrl}</div>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(studentRegisterUrl, 'Student Registration URL')}
+                  style={{
+                    background: 'rgba(16, 185, 129, 0.2)',
+                    border: '1px solid rgba(16, 185, 129, 0.4)',
+                    color: '#6EE7B7',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  📋 Copy Link
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL 3: MASTER USHER QR */}
+      {/* MODAL 3: MASTER USHER QR (Live Vercel / Cloudflare Tunnel Support) */}
       {showUsherQRModal && (
         <div className="modal-backdrop" onClick={() => setShowUsherQRModal(false)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()}>
+          <div className="modal-card" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>🛡️ Master Usher Scanner Access QR</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.3rem' }}>🛡️</span>
+                <div>
+                  <h3 style={{ margin: 0 }}>Master Usher Scanner Access QR</h3>
+                  <p style={{ margin: 0, fontSize: '0.72rem', color: '#94A3B8' }}>Entrance marshals scan this on mobile to unlock the camera gate viewfinder</p>
+                </div>
+              </div>
               <motion.button
                 className="btn-close"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => setShowUsherQRModal(false)}
               >
                 ✕
               </motion.button>
             </div>
-            <div className="modal-body text-center">
-              <p className="text-xs text-muted mb-3">Have entrance marshals scan this single QR with their phone camera to unlock the gate scanner.</p>
-              <div className="qr-box-large">
-                <QRCode value={masterUsherUrl} size={220} level="H" />
+
+            <div className="modal-body text-center" style={{ padding: '20px 24px' }}>
+              {/* Domain Switcher Bar */}
+              <div style={{
+                background: 'rgba(0, 0, 0, 0.45)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '10px',
+                padding: '12px',
+                marginBottom: '16px',
+                textAlign: 'left'
+              }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: '800', color: '#38BDF8', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>🌐 LIVE TARGET DOMAIN / TUNNEL:</span>
+                  <span style={{ color: '#94A3B8', fontSize: '0.7rem' }}>Editable</span>
+                </div>
+                <input
+                  type="text"
+                  value={publicDomain}
+                  onChange={(e) => handleSetPublicDomain(e.target.value)}
+                  placeholder="https://your-domain.vercel.app or https://xxx.trycloudflare.com"
+                  style={{
+                    width: '100%',
+                    background: 'rgba(0, 0, 0, 0.6)',
+                    border: '1px solid rgba(56, 189, 248, 0.4)',
+                    color: '#38BDF8',
+                    fontFamily: 'monospace',
+                    fontSize: '12px',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    marginBottom: '8px'
+                  }}
+                />
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleSetPublicDomain('https://urspantropiko-ticket-suite.vercel.app')}
+                    style={{
+                      background: 'rgba(56, 189, 248, 0.15)',
+                      border: '1px solid rgba(56, 189, 248, 0.35)',
+                      color: '#38BDF8',
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ☁️ Vercel App
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetPublicDomain(typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173')}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      color: '#CBD5E1',
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ⚡ Current Host
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetPublicDomain('http://localhost:5173')}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      color: '#CBD5E1',
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    💻 Localhost
+                  </button>
+                </div>
               </div>
-              <div className="modal-link-box">
-                <div className="font-mono text-xs text-blue break-all">{masterUsherUrl}</div>
+
+              {/* High-Contrast QR Code */}
+              <div className="qr-box-large" style={{ background: '#FFFFFF', padding: '16px', borderRadius: '14px', display: 'inline-block', boxShadow: '0 0 30px rgba(56, 189, 248, 0.3)' }}>
+                <QRCode value={masterUsherUrl} size={230} level="H" includeMargin={true} />
+              </div>
+
+              <div className="modal-link-box" style={{ marginTop: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                <div className="font-mono text-xs text-blue break-all" style={{ textAlign: 'left', flex: 1 }}>{masterUsherUrl}</div>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(masterUsherUrl, 'Master Usher Scanner Pass URL')}
+                  style={{
+                    background: 'rgba(56, 189, 248, 0.2)',
+                    border: '1px solid rgba(56, 189, 248, 0.4)',
+                    color: '#38BDF8',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  📋 Copy Link
+                </button>
               </div>
             </div>
           </div>
