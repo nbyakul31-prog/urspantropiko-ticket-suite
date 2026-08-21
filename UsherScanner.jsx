@@ -310,86 +310,120 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
 
         {/* Top Header */}
         <motion.div
-          className="usher-header"
+          className="usher-header-box"
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.1, duration: 0.3 }}
+          style={{ marginBottom: '14px' }}
         >
-          <div className="brand-header-card">
-            <div className="brand-header-left">
-              <img src="/logo.jpg" alt="URSP SSG Logo" className="brand-header-logo" />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <img
+                src="/logo.png"
+                alt="URSP SSG Logo"
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '50%',
+                  border: '2px solid #FFD100',
+                  background: '#FFF',
+                  objectFit: 'contain'
+                }}
+              />
               <div>
-                <h1 className="brand-title">Usher QR Scanner</h1>
-                <p className="brand-subtitle">ONE ISLAND, ONE CAMPUS, ONE IDENTITY — RED HAWKS SOARING IN UNITY</p>
+                <h1 style={{ fontSize: '17px', fontWeight: '800', color: '#FFF', margin: 0, lineHeight: 1.2 }}>
+                  Usher QR Scanner
+                </h1>
+                <p style={{ fontSize: '10px', color: '#94A3B8', margin: '2px 0 0 0' }}>
+                  URSPantropiko Gate Check-in
+                </p>
               </div>
             </div>
-            <div className="brand-header-right">
-              <span className="brand-badge">● LIVE DATABASE</span>
-            </div>
+            
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              background: 'rgba(6, 214, 160, 0.15)',
+              border: '1px solid rgba(6, 214, 160, 0.4)',
+              color: '#34D399',
+              borderRadius: '6px',
+              padding: '3px 8px',
+              fontSize: '10px',
+              fontWeight: '800',
+              whiteSpace: 'nowrap'
+            }}>
+              ● LIVE DB
+            </span>
           </div>
 
           {/* 2-Day Event Gate Switcher */}
           <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            background: 'rgba(0,0,0,0.4)',
-            padding: '8px 12px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: '6px',
+            background: 'rgba(0,0,0,0.45)',
+            padding: '6px',
             borderRadius: '12px',
             border: '1px solid rgba(255,255,255,0.1)',
-            margin: '12px 0'
+            marginTop: '12px'
           }}>
             <button
               type="button"
               onClick={() => setDaySelectionMode('auto')}
               style={{
-                background: daySelectionMode === 'auto' ? '#FFD100' : 'rgba(255,255,255,0.08)',
+                background: daySelectionMode === 'auto' ? '#FFD100' : 'rgba(255,255,255,0.06)',
                 color: daySelectionMode === 'auto' ? '#000' : '#E2E8F0',
                 border: 'none',
                 borderRadius: '8px',
-                padding: '6px 12px',
-                fontSize: '0.78rem',
+                padding: '6px 4px',
+                fontSize: '10.5px',
                 fontWeight: '800',
                 cursor: 'pointer',
+                textAlign: 'center',
+                lineHeight: 1.2,
                 transition: 'all 0.2s ease'
               }}
             >
-              ⚡ Auto PH Time ({getAutoPHDay() === 'day1' ? 'Day 1' : 'Day 2'})
+              ⚡ Auto ({getAutoPHDay() === 'day1' ? 'D1' : 'D2'})
             </button>
             <button
               type="button"
               onClick={() => setDaySelectionMode('day1')}
               style={{
-                background: activeDay === 'day1' && daySelectionMode !== 'auto' ? '#F59E0B' : 'rgba(255,255,255,0.08)',
+                background: activeDay === 'day1' && daySelectionMode !== 'auto' ? '#F59E0B' : 'rgba(255,255,255,0.06)',
                 color: activeDay === 'day1' && daySelectionMode !== 'auto' ? '#000' : '#E2E8F0',
                 border: 'none',
                 borderRadius: '8px',
-                padding: '6px 12px',
-                fontSize: '0.78rem',
+                padding: '6px 4px',
+                fontSize: '10.5px',
                 fontWeight: '800',
                 cursor: 'pointer',
+                textAlign: 'center',
+                lineHeight: 1.2,
                 transition: 'all 0.2s ease'
               }}
             >
-              🌅 Day 1 (Sept 17)
+              🌅 Day 1 (17th)
             </button>
             <button
               type="button"
               onClick={() => setDaySelectionMode('day2')}
               style={{
-                background: activeDay === 'day2' && daySelectionMode !== 'auto' ? '#10B981' : 'rgba(255,255,255,0.08)',
+                background: activeDay === 'day2' && daySelectionMode !== 'auto' ? '#10B981' : 'rgba(255,255,255,0.06)',
                 color: activeDay === 'day2' && daySelectionMode !== 'auto' ? '#000' : '#E2E8F0',
                 border: 'none',
                 borderRadius: '8px',
-                padding: '6px 12px',
-                fontSize: '0.78rem',
+                padding: '6px 4px',
+                fontSize: '10.5px',
                 fontWeight: '800',
                 cursor: 'pointer',
+                textAlign: 'center',
+                lineHeight: 1.2,
                 transition: 'all 0.2s ease'
               }}
             >
-              🌴 Day 2 (Sept 18)
+              🌴 Day 2 (18th)
             </button>
           </div>
 

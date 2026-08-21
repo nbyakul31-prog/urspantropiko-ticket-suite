@@ -238,16 +238,13 @@ export default function StudentPortal({ onTicketGenerated }) {
 
         <div className="portal-event-strip">
           <div className="event-strip-item">
-            <span>📅</span>
-            <span>Sept 17–18, 2026</span>
+            <span>📅 Sept 17–18</span>
           </div>
           <div className="event-strip-item">
-            <span>⏰</span>
-            <span>5:00 PM – 5:00 AM</span>
+            <span>⏰ 5PM – 5AM</span>
           </div>
           <div className="event-strip-item">
-            <span>📍</span>
-            <span>URS Pililla Gym</span>
+            <span>📍 URS Gym</span>
           </div>
         </div>
 

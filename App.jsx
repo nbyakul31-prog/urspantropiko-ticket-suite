@@ -578,7 +578,31 @@ export default function App() {
       {/* Role-Based Dynamic Navigation Header */}
       <header className="global-app-nav">
         <div className="global-nav-inner">
-          <div className="global-brand" onClick={() => handleNavigate('student')}>
+          <div
+            className="global-brand"
+            onClick={() => {
+              // Secret 3-tap admin trigger on mobile
+              const now = Date.now();
+              if (!window._lastTap || now - window._lastTap > 1500) {
+                window._tapCount = 1;
+              } else {
+                window._tapCount = (window._tapCount || 0) + 1;
+              }
+              window._lastTap = now;
+
+              if (window._tapCount >= 3 && !isAdminAuthed) {
+                window._tapCount = 0;
+                setPendingRoute('admin');
+                setPinError('');
+                setPinInput('');
+                setShowPinModal(true);
+              } else {
+                handleNavigate('student');
+              }
+            }}
+            style={{ cursor: 'pointer' }}
+            title="URSPantropiko Portal"
+          >
             <img src="/logo.png" alt="URSP Logo" className="global-nav-logo" />
             <div className="global-brand-text">
               <span className="global-brand-title">URSPANTROPIKO 2026</span>
@@ -621,8 +645,8 @@ export default function App() {
             </nav>
           )}
 
-          {/* PUBLIC STUDENT VIEW: Discreet Officer Login Only (No public admin access) */}
-          {!isAdminAuthed && route === 'student' && (
+          {/* OFFICER LOGIN BUTTON: Only displayed on LocalHost or with ?admin=1 query to prevent public student clutter */}
+          {!isAdminAuthed && route === 'student' && typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.search.includes('admin=1')) && (
             <div className="flex items-center gap-3">
               <button
                 className="btn-officer-login"
