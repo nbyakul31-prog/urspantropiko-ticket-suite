@@ -1372,9 +1372,9 @@ export default function AdminDashboard({
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, scale: 0.95 }}
                               transition={{ type: "spring", stiffness: 450, damping: 30 }}
-                              onMouseEnter={() => markTicketAsRead(item.ticket_code)}
                               onClick={() => markTicketAsRead(item.ticket_code)}
                               className={`${isHighlighted ? 'row-highlight-pulse' : ''} ${isDuplicate ? 'row-duplicate-warn' : ''}`}
+                              style={{ cursor: 'pointer' }}
                             >
                               <td style={{ textAlign: 'center' }}>
                                 <span className="row-seq-badge">#{studentIdx + 1}</span>
@@ -1392,7 +1392,7 @@ export default function AdminDashboard({
                                         animate={{ opacity: 1, scale: 1 }}
                                         exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
                                         className="badge-new-attendee"
-                                        title="New registration (Expires in 15 mins or hover/click to dismiss)"
+                                        title="✨ New Registration (Click row or badge to mark as read)"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           markTicketAsRead(item.ticket_code);
@@ -1516,9 +1516,9 @@ export default function AdminDashboard({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ type: "spring", stiffness: 450, damping: 30 }}
-                        onMouseEnter={() => markTicketAsRead(item.ticket_code)}
                         onClick={() => markTicketAsRead(item.ticket_code)}
                         className={`${isHighlighted ? 'row-highlight-pulse' : ''} ${isDuplicate ? 'row-duplicate-warn' : ''}`}
+                        style={{ cursor: 'pointer' }}
                       >
                         {/* Dynamic 1-to-N Auto-Increment Sequential Number */}
                         <td style={{ textAlign: 'center' }}>
@@ -1537,7 +1537,7 @@ export default function AdminDashboard({
                                   animate={{ opacity: 1, scale: 1 }}
                                   exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
                                   className="badge-new-attendee"
-                                  title="New registration (Expires in 15 mins or hover/click to dismiss)"
+                                  title="✨ New Registration (Click row or badge to mark as read)"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     markTicketAsRead(item.ticket_code);

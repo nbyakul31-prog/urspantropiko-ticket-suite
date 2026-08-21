@@ -620,44 +620,46 @@ export default function App() {
     <div className="app-layout">
       <BackgroundAmbient />
 
-      {/* Floating Real-Time Live Toast Notifications (5-Second Expiry & Rate-Limited) */}
-      <div className="global-toast-container">
-        <AnimatePresence>
-          {activeToasts.map(toast => (
-            <motion.div
-              key={toast.id}
-              className={`toast-card toast-${toast.type || 'registration'}`}
-              initial={{ opacity: 0, y: -20, scale: 0.92, x: 20 }}
-              animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
-              exit={{ opacity: 0, scale: 0.88, y: -15, transition: { duration: 0.25 } }}
-              transition={{ type: "spring", stiffness: 380, damping: 25 }}
-            >
-              <div className="toast-header">
-                <span className="toast-title-badge">
-                  {toast.type === 'registration' ? '🎉' : toast.type === 'payment' ? '💳' : toast.type === 'admission' ? '⚡' : toast.type === 'deletion' ? '🗑️' : '✨'} {toast.title || 'NOTIFICATION'}
-                </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span className="toast-time">{toast.timestamp}</span>
-                  <button
-                    className="toast-close-btn"
-                    onClick={() => removeToast(toast.id)}
-                    title="Dismiss notification"
-                  >
-                    ✕
-                  </button>
+      {/* Floating Real-Time Live Toast Notifications: Displayed ONLY in Admin Dashboard (5-Second Expiry & Rate-Limited) */}
+      {isAdminAuthed && route === 'admin' && (
+        <div className="global-toast-container">
+          <AnimatePresence>
+            {activeToasts.map(toast => (
+              <motion.div
+                key={toast.id}
+                className={`toast-card toast-${toast.type || 'registration'}`}
+                initial={{ opacity: 0, y: -20, scale: 0.92, x: 20 }}
+                animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.88, y: -15, transition: { duration: 0.25 } }}
+                transition={{ type: "spring", stiffness: 380, damping: 25 }}
+              >
+                <div className="toast-header">
+                  <span className="toast-title-badge">
+                    {toast.type === 'registration' ? '🎉' : toast.type === 'payment' ? '💳' : toast.type === 'admission' ? '⚡' : toast.type === 'deletion' ? '🗑️' : '✨'} {toast.title || 'NOTIFICATION'}
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="toast-time">{toast.timestamp}</span>
+                    <button
+                      className="toast-close-btn"
+                      onClick={() => removeToast(toast.id)}
+                      title="Dismiss notification"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <div className="toast-msg">
-                {toast.message}
-              </div>
+                <div className="toast-msg">
+                  {toast.message}
+                </div>
 
-              {/* 5-Second Animated Countdown Progress Bar */}
-              <div className="toast-progress-bar" />
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
+                {/* 5-Second Animated Countdown Progress Bar */}
+                <div className="toast-progress-bar" />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
 
       {/* Role-Based Dynamic Navigation Header */}
       <header className="global-app-nav">
