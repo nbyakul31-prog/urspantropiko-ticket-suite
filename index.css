@@ -608,15 +608,32 @@ img { max-width: 100%; height: auto; }
   text-align: center;
 }
 
+/* Student Registration Mobile Fluid Container */
+.portal-container {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 8px 12px 36px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
 .portal-glass-card { 
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
   background: var(--card-bg); 
   backdrop-filter: blur(28px) saturate(190%); 
   border: 1.5px solid var(--card-border); 
   border-radius: var(--radius-xl); 
-  padding: 30px 26px; 
+  padding: 26px 20px; 
   box-shadow: 0 30px 85px -15px rgba(0, 0, 0, 0.85), 0 0 50px rgba(255, 107, 53, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.18) !important; 
   overflow: hidden; 
   transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-sizing: border-box;
 }
 
 .portal-hero-logo {
