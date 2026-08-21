@@ -4,15 +4,31 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { sanitizeExcelFormula, sanitizeText } from './lib/security';
 
-// 3 Official Colleges at URS Pililla
+// 3 Official Colleges at URS Pililla (Alphabetically Arranged)
 export const OFFICIAL_COLLEGES = [
+  'College of Business',
   'College of Education',
-  'College of Social Sciences',
-  'College of Business'
+  'College of Social Sciences'
 ];
 
 export const getCollegeTheme = (collegeName) => {
   const norm = (collegeName || '').toLowerCase();
+  if (norm.includes('business') || norm.includes('cba') || norm.includes('bsba') || norm.includes('accountancy')) {
+    return {
+      name: 'College of Business',
+      short: 'CB',
+      badgeBg: '#D1FAE5',
+      badgeText: '#065F46',
+      badgeBorder: '#A7F3D0',
+      darkBadgeBg: 'rgba(16, 185, 129, 0.15)',
+      darkBadgeText: '#6EE7B7',
+      darkBadgeBorder: 'rgba(16, 185, 129, 0.35)',
+      solidColor: '#059669',
+      accentColor: '#10B981',
+      rowBg: '#F4FDF8',
+      icon: '💼'
+    };
+  }
   if (norm.includes('education') || norm.includes('ed')) {
     return {
       name: 'College of Education',
@@ -45,22 +61,6 @@ export const getCollegeTheme = (collegeName) => {
       icon: '⚖️'
     };
   }
-  if (norm.includes('business') || norm.includes('cba') || norm.includes('bsba') || norm.includes('accountancy')) {
-    return {
-      name: 'College of Business',
-      short: 'CB',
-      badgeBg: '#D1FAE5',
-      badgeText: '#065F46',
-      badgeBorder: '#A7F3D0',
-      darkBadgeBg: 'rgba(16, 185, 129, 0.15)',
-      darkBadgeText: '#6EE7B7',
-      darkBadgeBorder: 'rgba(16, 185, 129, 0.35)',
-      solidColor: '#059669',
-      accentColor: '#10B981',
-      rowBg: '#F4FDF8',
-      icon: '💼'
-    };
-  }
   return {
     name: collegeName || 'General',
     short: 'UNIV',
@@ -75,6 +75,52 @@ export const getCollegeTheme = (collegeName) => {
     rowBg: '#FFFFFF',
     icon: '🎓'
   };
+};
+
+// Helper: Group & Sort Attendees by Collegiate Department (Strict Alphabetical by College & Surname)
+export const groupAttendeesByCollege = (list = []) => {
+  const groups = {
+    'College of Business': [],
+    'College of Education': [],
+    'College of Social Sciences': []
+  };
+  const others = [];
+
+  list.forEach(item => {
+    const dept = (item.department || '').toLowerCase();
+    if (dept.includes('business') || dept.includes('bsba') || dept.includes('cba')) {
+      groups['College of Business'].push(item);
+    } else if (dept.includes('education') || dept.includes('ed') || dept.includes('bsed') || dept.includes('beed')) {
+      groups['College of Education'].push(item);
+    } else if (dept.includes('social') || dept.includes('css') || dept.includes('psych') || dept.includes('polsci')) {
+      groups['College of Social Sciences'].push(item);
+    } else {
+      others.push(item);
+    }
+  });
+
+  const result = [];
+  OFFICIAL_COLLEGES.forEach(col => {
+    if (groups[col] && groups[col].length > 0) {
+      // Strictly sort by surname A-Z within each college
+      const sorted = [...groups[col]].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+      result.push({
+        collegeName: col,
+        theme: getCollegeTheme(col),
+        students: sorted
+      });
+    }
+  });
+
+  if (others.length > 0) {
+    result.push({
+      collegeName: 'General & Cross-Enrolled',
+      theme: getCollegeTheme('General'),
+      students: [...others].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
+    });
+  }
+
+  return result;
 };
 
 export default function AdminDashboard({
@@ -97,6 +143,7 @@ export default function AdminDashboard({
   const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('recent'); // 'recent' | 'alpha_asc' | 'alpha_desc' | 'oldest' | 'paid_first' | 'day1_first' | 'day2_first'
+  const [groupByCollege, setGroupByCollege] = useState(true); // Collegiate Department divider grouping
   const [activeTab, setActiveTab] = useState('masterlist'); // 'masterlist' | 'analytics' | 'access'
 
   // Delete attendee confirmation modal state
@@ -259,6 +306,11 @@ export default function AdminDashboard({
     });
   }, [tickets, selectedDepartment, selectedSection, selectedYearLevel, selectedPaymentStatus, selectedDay1Status, selectedDay2Status, showDuplicatesOnly, searchQuery, duplicatesMap, sortBy]);
 
+  // Group Attendees by Collegiate Department for section dividers & department breakdown
+  const collegeGroups = useMemo(() => {
+    return groupAttendeesByCollege(filtered);
+  }, [filtered]);
+
   // KPI Calculations
   const totalCount = tickets.length;
   const paidCount = tickets.filter(i => i.payment_status === 'paid').length;
@@ -347,13 +399,13 @@ export default function AdminDashboard({
     }
   };
 
-  // Download Excel (.xls) - Strictly Alphabetized by Surname for Auditor Excellence
+  // Download Excel (.xls) - Grouped by Collegiate Department & Strictly Alphabetized by Surname
   const downloadExcel = () => {
-    const alphabetizedList = [...filtered].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
-    const totalInReport = alphabetizedList.length;
-    const paidInReport = alphabetizedList.filter(i => i.payment_status === 'paid').length;
-    const day1InReport = alphabetizedList.filter(i => i.day1_status === 'attended').length;
-    const day2InReport = alphabetizedList.filter(i => i.day2_status === 'attended').length;
+    const groups = groupAttendeesByCollege(filtered);
+    const totalInReport = filtered.length;
+    const paidInReport = filtered.filter(i => i.payment_status === 'paid').length;
+    const day1InReport = filtered.filter(i => i.day1_status === 'attended').length;
+    const day2InReport = filtered.filter(i => i.day2_status === 'attended').length;
     const paidPct = totalInReport > 0 ? Math.round((paidInReport / totalInReport) * 100) : 0;
     const totalCols = 10;
 
@@ -369,8 +421,8 @@ export default function AdminDashboard({
           .banner-venue { background-color: #1E293B; color: #FFFFFF; font-size: 9pt; text-align: center; padding: 6px; }
           .banner-doc { background-color: #0F172A; color: #38BDF8; font-size: 10pt; font-weight: bold; text-align: center; padding: 6px; }
           .th-std { background-color: #0F172A; color: #FFFFFF; font-size: 9pt; font-weight: bold; padding: 8px 4px; border: 1px solid #334155; text-align: center; }
-          .cell-center { text-align: center; vertical-align: middle; padding: 6px; border: 1px solid #E2E8F0; }
-          .cell-left { text-align: left; vertical-align: middle; padding: 6px 10px; border: 1px solid #E2E8F0; }
+          .cell-center { text-align: center; vertical-align: middle; padding: 6px; border: 1px solid #CBD5E1; }
+          .cell-left { text-align: left; vertical-align: middle; padding: 6px 10px; border: 1px solid #CBD5E1; }
           .badge-paid { background-color: #D1FAE5; color: #065F46; font-weight: bold; text-align: center; border: 1px solid #A7F3D0; }
           .badge-unpaid { background-color: #FEE2E2; color: #991B1B; font-weight: bold; text-align: center; border: 1px solid #FECACA; }
           .badge-attended { background-color: #DCFCE7; color: #15803D; font-weight: bold; text-align: center; border: 1px solid #86EFAC; }
@@ -392,7 +444,7 @@ export default function AdminDashboard({
             <td colspan="${totalCols}" class="banner-venue">📅 September 17-18, 2026 &nbsp;|&nbsp; 📍 University Gymnasium • URS Pililla Campus</td>
           </tr>
           <tr>
-            <td colspan="${totalCols}" class="banner-doc">📋 Official Alphabetical (A-Z by Surname) Attendance &amp; Ledger Audit Masterlist</td>
+            <td colspan="${totalCols}" class="banner-doc">📋 Official Departmental &amp; Collegiate Ledger Masterlist (Surname First A-Z)</td>
           </tr>
 
           <!-- Top Executive Analytics SITREP -->
@@ -416,50 +468,66 @@ export default function AdminDashboard({
               </table>
             </td>
           </tr>
-
-          <!-- Table Header Columns -->
-          <tr>
-            <th class="th-std" style="width: 45px;">#</th>
-            <th class="th-std" style="width: 130px;">Ticket Ref</th>
-            <th class="th-std" style="width: 130px;">Student ID</th>
-            <th class="th-std" style="width: 220px;">Student Name (Surname First)</th>
-            <th class="th-std" style="width: 210px;">College / Department</th>
-            <th class="th-std" style="width: 140px;">Program &amp; Section</th>
-            <th class="th-std" style="width: 110px;">Year Level</th>
-            <th class="th-std" style="width: 150px;">Payment Status</th>
-            <th class="th-std" style="width: 160px;">Day 1 (Sept 17)</th>
-            <th class="th-std" style="width: 160px;">Day 2 (Sept 18)</th>
-          </tr>
     `;
 
-    alphabetizedList.forEach((d, idx) => {
-      const theme = getCollegeTheme(d.department);
-      const isPaid = d.payment_status === 'paid';
-      const isDay1Attended = d.day1_status === 'attended';
-      const isDay2Attended = d.day2_status === 'attended';
+    let globalSeq = 0;
+    groups.forEach((grp, grpIdx) => {
+      const grpPaid = grp.students.filter(s => s.payment_status === 'paid').length;
+      const grpDay1 = grp.students.filter(s => s.day1_status === 'attended').length;
+      const grpDay2 = grp.students.filter(s => s.day2_status === 'attended').length;
+      const grpPaidPct = grp.students.length > 0 ? Math.round((grpPaid / grp.students.length) * 100) : 0;
 
+      // Collegiate Division Banner Header Row
       tableHTML += `
-        <tr style="background-color: ${theme.rowBg};">
-          <td class="cell-center" style="font-weight: bold; color: #64748B;">${idx + 1}</td>
-          <td class="cell-center" style="font-weight: bold; color: #1E293B; font-family: monospace;">${sanitizeExcelFormula(d.ticket_code)}</td>
-          <td class="cell-center" style="font-weight: bold; color: #0F172A; font-family: monospace; mso-number-format:'\\@';">${sanitizeExcelFormula(d.student_id)}</td>
-          <td class="cell-left" style="font-weight: bold; color: #0F172A;">${sanitizeExcelFormula(d.full_name)}</td>
-          <td class="cell-center" style="background-color: ${theme.badgeBg}; color: ${theme.badgeText}; font-weight: bold; border: 1px solid ${theme.badgeBorder};">
-            ${theme.icon} ${sanitizeExcelFormula(d.department || 'N/A')}
-          </td>
-          <td class="cell-center" style="font-weight: bold; color: #1E293B;">${sanitizeExcelFormula(d.program_section)}</td>
-          <td class="cell-center">${sanitizeExcelFormula(d.year_level || '1st Year')}</td>
-          <td class="${isPaid ? 'badge-paid' : 'badge-unpaid'}">
-            ${isPaid ? '💳 PAID &amp; VERIFIED' : '⏳ UNPAID'}
-          </td>
-          <td class="${isDay1Attended ? 'badge-attended' : 'badge-absent'}">
-            ${isDay1Attended ? `✅ IN (${d.day1_time || '08:14 AM'})` : '❌ NOT IN'}
-          </td>
-          <td class="${isDay2Attended ? 'badge-attended' : 'badge-absent'}">
-            ${isDay2Attended ? `✅ IN (${d.day2_time || '08:45 PM'})` : '❌ NOT IN'}
+        <tr>
+          <td colspan="${totalCols}" style="background-color: ${grp.theme.solidColor}; color: #FFFFFF; font-size: 11pt; font-weight: 900; padding: 10px 14px; border: 2px solid #0F172A; text-align: left;">
+            ${grp.theme.icon} ${grpIdx + 1}. ${grp.collegeName.toUpperCase()} (${grp.theme.short}) &nbsp;&bull;&nbsp; 👥 ${grp.students.length} Enrolled &nbsp;&bull;&nbsp; 💳 ${grpPaid} Paid (${grpPaidPct}%) &nbsp;&bull;&nbsp; 🌅 Day 1: ${grpDay1} &nbsp;&bull;&nbsp; 🌴 Day 2: ${grpDay2}
           </td>
         </tr>
+        <tr>
+          <th class="th-std" style="width: 45px;">#</th>
+          <th class="th-std" style="width: 120px;">Ticket Ref</th>
+          <th class="th-std" style="width: 120px;">Student ID</th>
+          <th class="th-std" style="width: 230px;">Student Name (Surname First)</th>
+          <th class="th-std" style="width: 200px;">College / Department</th>
+          <th class="th-std" style="width: 130px;">Program &amp; Section</th>
+          <th class="th-std" style="width: 100px;">Year Level</th>
+          <th class="th-std" style="width: 140px;">Payment Status</th>
+          <th class="th-std" style="width: 150px;">Day 1 (Sept 17)</th>
+          <th class="th-std" style="width: 150px;">Day 2 (Sept 18)</th>
+        </tr>
       `;
+
+      grp.students.forEach((d) => {
+        globalSeq++;
+        const theme = getCollegeTheme(d.department);
+        const isPaid = d.payment_status === 'paid';
+        const isDay1Attended = d.day1_status === 'attended';
+        const isDay2Attended = d.day2_status === 'attended';
+
+        tableHTML += `
+          <tr style="background-color: ${theme.rowBg};">
+            <td class="cell-center" style="font-weight: bold; color: #64748B;">${globalSeq}</td>
+            <td class="cell-center" style="font-weight: bold; color: #1E293B; font-family: monospace;">${sanitizeExcelFormula(d.ticket_code)}</td>
+            <td class="cell-center" style="font-weight: bold; color: #0F172A; font-family: monospace; mso-number-format:'\\@';">${sanitizeExcelFormula(d.student_id)}</td>
+            <td class="cell-left" style="font-weight: bold; color: #0F172A;">${sanitizeExcelFormula(d.full_name)}</td>
+            <td class="cell-center" style="background-color: ${theme.badgeBg}; color: ${theme.badgeText}; font-weight: bold; border: 1px solid ${theme.badgeBorder};">
+              ${theme.icon} ${sanitizeExcelFormula(d.department || 'N/A')}
+            </td>
+            <td class="cell-center" style="font-weight: bold; color: #1E293B;">${sanitizeExcelFormula(d.program_section)}</td>
+            <td class="cell-center">${sanitizeExcelFormula(d.year_level || '1st Year')}</td>
+            <td class="${isPaid ? 'badge-paid' : 'badge-unpaid'}">
+              ${isPaid ? '💳 PAID &amp; VERIFIED' : '⏳ UNPAID'}
+            </td>
+            <td class="${isDay1Attended ? 'badge-attended' : 'badge-absent'}">
+              ${isDay1Attended ? `✅ IN (${d.day1_time || '08:14 AM'})` : '❌ NOT IN'}
+            </td>
+            <td class="${isDay2Attended ? 'badge-attended' : 'badge-absent'}">
+              ${isDay2Attended ? `✅ IN (${d.day2_time || '08:45 PM'})` : '❌ NOT IN'}
+            </td>
+          </tr>
+        `;
+      });
     });
 
     tableHTML += `
@@ -477,14 +545,14 @@ export default function AdminDashboard({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `URSPANTROPIKO_2026_Masterlist_${new Date().toISOString().slice(0, 10)}.xls`;
+    link.download = `URSPANTROPIKO_2026_Departmental_Masterlist_${new Date().toISOString().slice(0, 10)}.xls`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
 
-  // Print PDF Masterlist
+  // Print PDF Masterlist - Grouped by Collegiate Department & Alphabetized by Surname
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -492,18 +560,66 @@ export default function AdminDashboard({
       return;
     }
 
-    const alphabetizedList = [...filtered].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
-    const totalInReport = alphabetizedList.length;
-    const paidInReport = alphabetizedList.filter(i => i.payment_status === 'paid').length;
-    const day1InReport = alphabetizedList.filter(i => i.day1_status === 'attended').length;
-    const day2InReport = alphabetizedList.filter(i => i.day2_status === 'attended').length;
+    const groups = groupAttendeesByCollege(filtered);
+    const totalInReport = filtered.length;
+    const paidInReport = filtered.filter(i => i.payment_status === 'paid').length;
+    const day1InReport = filtered.filter(i => i.day1_status === 'attended').length;
+    const day2InReport = filtered.filter(i => i.day2_status === 'attended').length;
     const paidPct = totalInReport > 0 ? Math.round((paidInReport / totalInReport) * 100) : 0;
+
+    let globalSeq = 0;
+    const printRows = groups.map((grp, grpIdx) => {
+      const grpPaid = grp.students.filter(s => s.payment_status === 'paid').length;
+      const grpDay1 = grp.students.filter(s => s.day1_status === 'attended').length;
+      const grpDay2 = grp.students.filter(s => s.day2_status === 'attended').length;
+      const grpPaidPct = grp.students.length > 0 ? Math.round((grpPaid / grp.students.length) * 100) : 0;
+
+      const dividerRow = `
+        <tr style="background-color: ${grp.theme.solidColor} !important; color: #FFFFFF !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+          <td colspan="10" style="padding: 7px 12px; font-weight: 800; font-size: 9pt; border: 1.5px solid #0F172A; text-align: left;">
+            ${grp.theme.icon} ${grpIdx + 1}. ${grp.collegeName.toUpperCase()} (${grp.theme.short}) — ${grp.students.length} Students &bull; 💳 ${grpPaid} Paid (${grpPaidPct}%) &bull; 🌅 Day 1: ${grpDay1} &bull; 🌴 Day 2: ${grpDay2}
+          </td>
+        </tr>
+      `;
+
+      const studentRows = grp.students.map((d) => {
+        globalSeq++;
+        const theme = getCollegeTheme(d.department);
+        const isPaid = d.payment_status === 'paid';
+        const isDay1 = d.day1_status === 'attended';
+        const isDay2 = d.day2_status === 'attended';
+        return `
+          <tr style="background-color: ${theme.rowBg} !important;">
+            <td style="text-align: center; font-weight: bold; color: #64748B;">${globalSeq}</td>
+            <td style="text-align: center; font-weight: bold; font-family: monospace;">${d.ticket_code}</td>
+            <td style="text-align: center; font-weight: bold; font-family: monospace;">${d.student_id}</td>
+            <td style="font-weight: bold; color: #0F172A;">${d.full_name}</td>
+            <td style="text-align: center; background-color: ${theme.badgeBg} !important; color: ${theme.badgeText} !important; font-weight: bold;">
+              ${theme.icon} ${theme.name}
+            </td>
+            <td style="text-align: center; font-weight: bold;">${d.program_section}</td>
+            <td style="text-align: center;">${d.year_level || '1st Year'}</td>
+            <td style="text-align: center; font-weight: bold; color: ${isPaid ? '#065F46' : '#991B1B'}; background-color: ${isPaid ? '#D1FAE5' : '#FEE2E2'} !important;">
+              ${isPaid ? '💳 PAID' : '⏳ UNPAID'}
+            </td>
+            <td style="text-align: center; font-weight: bold; color: ${isDay1 ? '#15803D' : '#64748B'}; background-color: ${isDay1 ? '#DCFCE7' : '#F1F5F9'} !important;">
+              ${isDay1 ? `✅ IN (${d.day1_time || '08:14 AM'})` : '❌ NOT IN'}
+            </td>
+            <td style="text-align: center; font-weight: bold; color: ${isDay2 ? '#15803D' : '#64748B'}; background-color: ${isDay2 ? '#DCFCE7' : '#F1F5F9'} !important;">
+              ${isDay2 ? `✅ IN (${d.day2_time || '08:45 PM'})` : '❌ NOT IN'}
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      return dividerRow + studentRows;
+    }).join('');
 
     const html = `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>URSPANTROPIKO 2026 — Official Alphabetical Masterlist Print Ledger</title>
+        <title>URSPANTROPIKO 2026 — Official Collegiate Department Masterlist Print Ledger</title>
         <style>
           @page { size: A4 landscape; margin: 10mm; }
           body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 8.5pt; color: #0F172A; margin: 0; padding: 0; }
@@ -525,7 +641,7 @@ export default function AdminDashboard({
           <div style="flex: 1; text-align: center;">
             <h1>🏛️ UNIVERSITY OF RIZAL SYSTEM • PILILLA CAMPUS</h1>
             <h2>🎉 URSPANTROPIKO: ACQUAINTANCE PARTY &amp; GENERAL ASSEMBLY 2026</h2>
-            <p>📅 Sept 17-18, 2026 &nbsp;|&nbsp; 📍 University Gymnasium • URS Pililla &nbsp;|&nbsp; 📋 Official Alphabetical (Surname First) Ledger Audit</p>
+            <p>📅 Sept 17-18, 2026 &nbsp;|&nbsp; 📍 University Gymnasium • URS Pililla &nbsp;|&nbsp; 📋 Official Departmental &amp; Collegiate Ledger Audit</p>
           </div>
           <img src="${window.location.origin}/urs_logo.png" style="width: 52px; height: 52px; border-radius: 50%; background: #FFF; border: 2px solid #38BDF8; object-fit: contain;" />
         </div>
@@ -561,34 +677,7 @@ export default function AdminDashboard({
             </tr>
           </thead>
           <tbody>
-            ${alphabetizedList.map((d, idx) => {
-              const theme = getCollegeTheme(d.department);
-              const isPaid = d.payment_status === 'paid';
-              const isDay1 = d.day1_status === 'attended';
-              const isDay2 = d.day2_status === 'attended';
-              return `
-                <tr style="background-color: ${theme.rowBg} !important;">
-                  <td style="text-align: center; font-weight: bold; color: #64748B;">${idx + 1}</td>
-                  <td style="text-align: center; font-weight: bold; font-family: monospace;">${d.ticket_code}</td>
-                  <td style="text-align: center; font-weight: bold; font-family: monospace;">${d.student_id}</td>
-                  <td style="font-weight: bold; color: #0F172A;">${d.full_name}</td>
-                  <td style="text-align: center; background-color: ${theme.badgeBg} !important; color: ${theme.badgeText} !important; font-weight: bold;">
-                    ${theme.icon} ${theme.name}
-                  </td>
-                  <td style="text-align: center; font-weight: bold;">${d.program_section}</td>
-                  <td style="text-align: center;">${d.year_level || '1st Year'}</td>
-                  <td style="text-align: center; font-weight: bold; color: ${isPaid ? '#065F46' : '#991B1B'}; background-color: ${isPaid ? '#D1FAE5' : '#FEE2E2'} !important;">
-                    ${isPaid ? '💳 PAID' : '⏳ UNPAID'}
-                  </td>
-                  <td style="text-align: center; font-weight: bold; color: ${isDay1 ? '#15803D' : '#64748B'}; background-color: ${isDay1 ? '#DCFCE7' : '#F1F5F9'} !important;">
-                    ${isDay1 ? `✅ IN (${d.day1_time || '08:14 AM'})` : '❌ NOT IN'}
-                  </td>
-                  <td style="text-align: center; font-weight: bold; color: ${isDay2 ? '#15803D' : '#64748B'}; background-color: ${isDay2 ? '#DCFCE7' : '#F1F5F9'} !important;">
-                    ${isDay2 ? `✅ IN (${d.day2_time || '08:45 PM'})` : '❌ NOT IN'}
-                  </td>
-                </tr>
-              `;
-            }).join('')}
+            ${printRows}
           </tbody>
         </table>
 
@@ -1113,9 +1202,7 @@ export default function AdminDashboard({
                 <option value="paid_first">💳 Sort: Paid First</option>
                 <option value="day1_first">🌅 Sort: Day 1 Admitted First</option>
                 <option value="day2_first">🌴 Sort: Day 2 Admitted First</option>
-              </motion.select>
-
-              {/* Duplicate Detection Toggle Filter */}
+              </motion.select>              {/* Duplicate Detection Toggle Filter */}
               <motion.button
                 type="button"
                 className={`btn-dup-filter ${showDuplicatesOnly ? 'active' : ''}`}
@@ -1126,6 +1213,23 @@ export default function AdminDashboard({
               >
                 ⚠️ {showDuplicatesOnly ? 'Showing Duplicates' : 'Filter Duplicates'}
                 <span className="dup-count-badge">{duplicateAttendeesCount}</span>
+              </motion.button>
+
+              {/* Group by College Divider Toggle */}
+              <motion.button
+                type="button"
+                className={`btn-dup-filter ${groupByCollege ? 'active' : ''}`}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setGroupByCollege(prev => !prev)}
+                title="Toggle collegiate department divider banners"
+                style={{
+                  background: groupByCollege ? 'linear-gradient(135deg, rgba(217, 119, 6, 0.3), rgba(245, 158, 11, 0.2))' : 'rgba(255, 255, 255, 0.05)',
+                  border: groupByCollege ? '1.5px solid #F59E0B' : '1px solid rgba(255, 255, 255, 0.15)',
+                  color: groupByCollege ? '#FEF08A' : '#CBD5E1'
+                }}
+              >
+                🏛️ {groupByCollege ? 'College Dividers: ON' : 'College Dividers: OFF'}
               </motion.button>
 
               {/* Bulk Verify Button */}
@@ -1159,130 +1263,307 @@ export default function AdminDashboard({
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((item, idx) => {
-                  const theme = getCollegeTheme(item.department);
-                  const isHighlighted = highlightedCode === item.ticket_code;
-                  const isDay1 = item.day1_status === 'attended';
-                  const isDay2 = item.day2_status === 'attended';
+                {groupByCollege && selectedDepartment === 'ALL' ? (
+                  collegeGroups.map((grp) => {
+                    const grpPaid = grp.students.filter(s => s.payment_status === 'paid').length;
+                    const grpPaidPct = grp.students.length > 0 ? Math.round((grpPaid / grp.students.length) * 100) : 0;
+                    return (
+                      <React.Fragment key={grp.collegeName}>
+                        {/* Grand Collegiate Division Section Divider */}
+                        <tr className="tr-college-divider">
+                          <td colSpan={9} style={{ padding: '0' }}>
+                            <div style={{
+                              background: `linear-gradient(90deg, ${grp.theme.solidColor}25 0%, rgba(15, 23, 42, 0.95) 100%)`,
+                              borderLeft: `5px solid ${grp.theme.solidColor}`,
+                              borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                              padding: '10px 16px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              flexWrap: 'wrap',
+                              gap: '8px'
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ fontSize: '1.4rem' }}>{grp.theme.icon}</span>
+                                <div>
+                                  <div style={{ fontSize: '13px', fontWeight: '900', color: grp.theme.darkBadgeText, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                                    {grp.collegeName} ({grp.theme.short})
+                                  </div>
+                                  <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                                    Collegiate Department Division &bull; Surname Alphabetical (A-Z)
+                                  </div>
+                                </div>
+                              </div>
 
-                  const idKey = (item.student_id || '').trim().toLowerCase();
-                  const nameKey = (item.full_name || '').trim().toLowerCase();
-                  const isDuplicateId = idKey && duplicatesMap.idCounts[idKey] > 1;
-                  const isDuplicateName = nameKey && duplicatesMap.nameCounts[nameKey] > 1;
-                  const isDuplicate = isDuplicateId || isDuplicateName;
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <span className="college-stat-pill">👥 {grp.students.length} Enrolled</span>
+                                <span className="college-stat-pill" style={{ color: '#6EE7B7', borderColor: 'rgba(110, 231, 183, 0.3)' }}>
+                                  💳 {grpPaid} Paid ({grpPaidPct}%)
+                                </span>
+                                <span className="college-stat-pill" style={{ color: '#FDE68A', borderColor: 'rgba(253, 230, 138, 0.3)' }}>
+                                  🌅 Day 1: {grp.students.filter(s => s.day1_status === 'attended').length}
+                                </span>
+                                <span className="college-stat-pill" style={{ color: '#DDD6FE', borderColor: 'rgba(221, 214, 254, 0.3)' }}>
+                                  🌴 Day 2: {grp.students.filter(s => s.day2_status === 'attended').length}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
 
-                  return (
-                    <motion.tr
-                      layout
-                      key={item.ticket_code || item.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ type: "spring", stiffness: 450, damping: 30 }}
-                      className={`${isHighlighted ? 'row-highlight-pulse' : ''} ${isDuplicate ? 'row-duplicate-warn' : ''}`}
-                    >
-                      {/* Dynamic 1-to-N Auto-Increment Sequential Number */}
-                      <td style={{ textAlign: 'center' }}>
-                        <span className="row-seq-badge">#{idx + 1}</span>
-                      </td>
-                      <td>
-                        <span className="ticket-code-pill font-mono">{item.ticket_code}</span>
-                      </td>
-                      <td>
-                        <div className="font-bold text-white text-sm flex items-center gap-2">
-                          <span>{item.full_name}</span>
-                          {item.ticket_code === tickets[0]?.ticket_code && (
-                            <span className="badge-new-attendee" title="Most recent attendee registration">
-                              ✨ NEW
-                            </span>
-                          )}
-                          {isDuplicate && (
-                            <span className="duplicate-tag" title="Potential duplicate student entry detected">
-                              ⚠️ {isDuplicateId ? 'Duplicate ID' : 'Duplicate Name'}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-muted font-mono">ID: {item.student_id}</div>
-                      </td>
-                      <td>
-                        <span
-                          className="status-pill"
-                          style={{
-                            backgroundColor: theme.darkBadgeBg,
-                            color: theme.darkBadgeText,
-                            border: `1px solid ${theme.darkBadgeBorder}`,
-                            fontWeight: '700'
-                          }}
-                        >
-                          {theme.icon} {theme.name}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="section-pill">{item.program_section}</div>
-                        <div className="year-tag">{item.year_level || '1st Year'}</div>
-                      </td>
-                      <td>
-                        <span
-                          onClick={() => onTogglePayment(item.ticket_code)}
-                          style={{ cursor: 'pointer' }}
-                          title="Click to toggle payment status"
-                          className={`status-pill ${item.payment_status === 'paid' ? 'status-paid' : 'status-unpaid'}`}
-                        >
-                          {item.payment_status === 'paid' ? '💳 Paid & Verified' : '⏳ Unpaid'}
-                        </span>
-                      </td>
-                      
-                      {/* Day 1 Check-In Column */}
-                      <td style={{ textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleDay(item.ticket_code, 'day1')}
-                          className={`gate-checkin-btn ${isDay1 ? 'attended' : 'absent'}`}
-                          title="Click to toggle Day 1 attendance"
-                        >
-                          {isDay1 ? `✅ In (${item.day1_time || '08:14 AM'})` : '❌ Absent'}
-                        </button>
-                      </td>
+                        {grp.students.map((item, studentIdx) => {
+                          const theme = getCollegeTheme(item.department);
+                          const isHighlighted = highlightedCode === item.ticket_code;
+                          const isDay1 = item.day1_status === 'attended';
+                          const isDay2 = item.day2_status === 'attended';
 
-                      {/* Day 2 Check-In Column */}
-                      <td style={{ textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleDay(item.ticket_code, 'day2')}
-                          className={`gate-checkin-btn ${isDay2 ? 'attended' : 'absent'}`}
-                          title="Click to toggle Day 2 attendance"
-                        >
-                          {isDay2 ? `✅ In (${item.day2_time || '08:45 PM'})` : '❌ Absent'}
-                        </button>
-                      </td>
+                          const idKey = (item.student_id || '').trim().toLowerCase();
+                          const nameKey = (item.full_name || '').trim().toLowerCase();
+                          const isDuplicateId = idKey && duplicatesMap.idCounts[idKey] > 1;
+                          const isDuplicateName = nameKey && duplicatesMap.nameCounts[nameKey] > 1;
+                          const isDuplicate = isDuplicateId || isDuplicateName;
 
-                      {/* Actions: Verify/Undo + Remove Row Button */}
-                      <td style={{ textAlign: 'right' }}>
-                        <div className="flex items-center justify-end gap-2">
-                          <motion.button
-                            className={`btn-action ${item.payment_status === 'paid' ? 'btn-undo' : 'btn-verify'}`}
-                            whileHover={{ scale: 1.04 }}
-                            whileTap={{ scale: 0.95 }}
+                          return (
+                            <motion.tr
+                              layout
+                              key={item.ticket_code || item.id}
+                              initial={{ opacity: 0, y: 8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.95 }}
+                              transition={{ type: "spring", stiffness: 450, damping: 30 }}
+                              className={`${isHighlighted ? 'row-highlight-pulse' : ''} ${isDuplicate ? 'row-duplicate-warn' : ''}`}
+                            >
+                              <td style={{ textAlign: 'center' }}>
+                                <span className="row-seq-badge">#{studentIdx + 1}</span>
+                              </td>
+                              <td>
+                                <span className="ticket-code-pill font-mono">{item.ticket_code}</span>
+                              </td>
+                              <td>
+                                <div className="font-bold text-white text-sm flex items-center gap-2">
+                                  <span>{item.full_name}</span>
+                                  {item.ticket_code === tickets[0]?.ticket_code && (
+                                    <span className="badge-new-attendee" title="Most recent attendee registration">
+                                      ✨ NEW
+                                    </span>
+                                  )}
+                                  {isDuplicate && (
+                                    <span className="duplicate-tag" title="Potential duplicate student entry detected">
+                                      ⚠️ {isDuplicateId ? 'Duplicate ID' : 'Duplicate Name'}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-muted font-mono">ID: {item.student_id}</div>
+                              </td>
+                              <td>
+                                <span
+                                  className="status-pill"
+                                  style={{
+                                    backgroundColor: theme.darkBadgeBg,
+                                    color: theme.darkBadgeText,
+                                    border: `1px solid ${theme.darkBadgeBorder}`,
+                                    fontWeight: '700'
+                                  }}
+                                >
+                                  {theme.icon} {theme.name}
+                                </span>
+                              </td>
+                              <td>
+                                <div className="section-pill">{item.program_section}</div>
+                                <div className="year-tag">{item.year_level || '1st Year'}</div>
+                              </td>
+                              <td>
+                                <span
+                                  onClick={() => onTogglePayment(item.ticket_code)}
+                                  style={{ cursor: 'pointer' }}
+                                  title="Click to toggle payment status"
+                                  className={`status-pill ${item.payment_status === 'paid' ? 'status-paid' : 'status-unpaid'}`}
+                                >
+                                  {item.payment_status === 'paid' ? '💳 Paid & Verified' : '⏳ Unpaid'}
+                                </span>
+                              </td>
+                              
+                              {/* Day 1 Check-In Column */}
+                              <td style={{ textAlign: 'center' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleDay(item.ticket_code, 'day1')}
+                                  className={`gate-checkin-btn ${isDay1 ? 'attended' : 'absent'}`}
+                                  title="Click to toggle Day 1 attendance"
+                                >
+                                  {isDay1 ? `✅ In (${item.day1_time || '08:14 AM'})` : '❌ Absent'}
+                                </button>
+                              </td>
+
+                              {/* Day 2 Check-In Column */}
+                              <td style={{ textAlign: 'center' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleDay(item.ticket_code, 'day2')}
+                                  className={`gate-checkin-btn ${isDay2 ? 'attended' : 'absent'}`}
+                                  title="Click to toggle Day 2 attendance"
+                                >
+                                  {isDay2 ? `✅ In (${item.day2_time || '08:45 PM'})` : '❌ Absent'}
+                                </button>
+                              </td>
+
+                              {/* Actions: Verify/Undo + Remove Row Button */}
+                              <td style={{ textAlign: 'right' }}>
+                                <div className="flex items-center justify-end gap-2">
+                                  <motion.button
+                                    className={`btn-action ${item.payment_status === 'paid' ? 'btn-undo' : 'btn-verify'}`}
+                                    whileHover={{ scale: 1.04 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => onTogglePayment(item.ticket_code)}
+                                    title={item.payment_status === 'paid' ? 'Revert to unpaid' : 'Mark as paid'}
+                                  >
+                                    {item.payment_status === 'paid' ? 'Undo' : 'Verify'}
+                                  </motion.button>
+
+                                  <motion.button
+                                    className="btn-action-delete"
+                                    whileHover={{ scale: 1.08 }}
+                                    whileTap={{ scale: 0.92 }}
+                                    onClick={() => setAttendeeToDelete(item)}
+                                    title="Remove student from masterlist (Delete duplicate)"
+                                  >
+                                    🗑️
+                                  </motion.button>
+                                </div>
+                              </td>
+                            </motion.tr>
+                          );
+                        })}
+                      </React.Fragment>
+                    );
+                  })
+                ) : (
+                  filtered.map((item, idx) => {
+                    const theme = getCollegeTheme(item.department);
+                    const isHighlighted = highlightedCode === item.ticket_code;
+                    const isDay1 = item.day1_status === 'attended';
+                    const isDay2 = item.day2_status === 'attended';
+
+                    const idKey = (item.student_id || '').trim().toLowerCase();
+                    const nameKey = (item.full_name || '').trim().toLowerCase();
+                    const isDuplicateId = idKey && duplicatesMap.idCounts[idKey] > 1;
+                    const isDuplicateName = nameKey && duplicatesMap.nameCounts[nameKey] > 1;
+                    const isDuplicate = isDuplicateId || isDuplicateName;
+
+                    return (
+                      <motion.tr
+                        layout
+                        key={item.ticket_code || item.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ type: "spring", stiffness: 450, damping: 30 }}
+                        className={`${isHighlighted ? 'row-highlight-pulse' : ''} ${isDuplicate ? 'row-duplicate-warn' : ''}`}
+                      >
+                        {/* Dynamic 1-to-N Auto-Increment Sequential Number */}
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="row-seq-badge">#{idx + 1}</span>
+                        </td>
+                        <td>
+                          <span className="ticket-code-pill font-mono">{item.ticket_code}</span>
+                        </td>
+                        <td>
+                          <div className="font-bold text-white text-sm flex items-center gap-2">
+                            <span>{item.full_name}</span>
+                            {item.ticket_code === tickets[0]?.ticket_code && (
+                              <span className="badge-new-attendee" title="Most recent attendee registration">
+                                ✨ NEW
+                              </span>
+                            )}
+                            {isDuplicate && (
+                              <span className="duplicate-tag" title="Potential duplicate student entry detected">
+                                ⚠️ {isDuplicateId ? 'Duplicate ID' : 'Duplicate Name'}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted font-mono">ID: {item.student_id}</div>
+                        </td>
+                        <td>
+                          <span
+                            className="status-pill"
+                            style={{
+                              backgroundColor: theme.darkBadgeBg,
+                              color: theme.darkBadgeText,
+                              border: `1px solid ${theme.darkBadgeBorder}`,
+                              fontWeight: '700'
+                            }}
+                          >
+                            {theme.icon} {theme.name}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="section-pill">{item.program_section}</div>
+                          <div className="year-tag">{item.year_level || '1st Year'}</div>
+                        </td>
+                        <td>
+                          <span
                             onClick={() => onTogglePayment(item.ticket_code)}
-                            title={item.payment_status === 'paid' ? 'Revert to unpaid' : 'Mark as paid'}
+                            style={{ cursor: 'pointer' }}
+                            title="Click to toggle payment status"
+                            className={`status-pill ${item.payment_status === 'paid' ? 'status-paid' : 'status-unpaid'}`}
                           >
-                            {item.payment_status === 'paid' ? 'Undo' : 'Verify'}
-                          </motion.button>
+                            {item.payment_status === 'paid' ? '💳 Paid & Verified' : '⏳ Unpaid'}
+                          </span>
+                        </td>
+                        
+                        {/* Day 1 Check-In Column */}
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleDay(item.ticket_code, 'day1')}
+                            className={`gate-checkin-btn ${isDay1 ? 'attended' : 'absent'}`}
+                            title="Click to toggle Day 1 attendance"
+                          >
+                            {isDay1 ? `✅ In (${item.day1_time || '08:14 AM'})` : '❌ Absent'}
+                          </button>
+                        </td>
 
-                          <motion.button
-                            className="btn-action-delete"
-                            whileHover={{ scale: 1.08 }}
-                            whileTap={{ scale: 0.92 }}
-                            onClick={() => setAttendeeToDelete(item)}
-                            title="Remove student from masterlist (Delete duplicate)"
+                        {/* Day 2 Check-In Column */}
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleDay(item.ticket_code, 'day2')}
+                            className={`gate-checkin-btn ${isDay2 ? 'attended' : 'absent'}`}
+                            title="Click to toggle Day 2 attendance"
                           >
-                            🗑️
-                          </motion.button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  );
-                })}
+                            {isDay2 ? `✅ In (${item.day2_time || '08:45 PM'})` : '❌ Absent'}
+                          </button>
+                        </td>
+
+                        {/* Actions: Verify/Undo + Remove Row Button */}
+                        <td style={{ textAlign: 'right' }}>
+                          <div className="flex items-center justify-end gap-2">
+                            <motion.button
+                              className={`btn-action ${item.payment_status === 'paid' ? 'btn-undo' : 'btn-verify'}`}
+                              whileHover={{ scale: 1.04 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => onTogglePayment(item.ticket_code)}
+                              title={item.payment_status === 'paid' ? 'Revert to unpaid' : 'Mark as paid'}
+                            >
+                              {item.payment_status === 'paid' ? 'Undo' : 'Verify'}
+                            </motion.button>
+
+                            <motion.button
+                              className="btn-action-delete"
+                              whileHover={{ scale: 1.08 }}
+                              whileTap={{ scale: 0.92 }}
+                              onClick={() => setAttendeeToDelete(item)}
+                              title="Remove student from masterlist (Delete duplicate)"
+                            >
+                              🗑️
+                            </motion.button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    );
+                  })
+                )}
                 {filtered.length === 0 && (
                   <tr>
                     <td colSpan="9" className="text-center py-8 text-muted">
