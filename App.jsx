@@ -108,13 +108,14 @@ function getStoredTickets() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.filter(t => !deletedSet.has(t.ticket_code)).map(normalizeTicket);
+        const active = parsed.filter(t => !deletedSet.has(t.ticket_code)).map(normalizeTicket);
+        if (active.length > 0) return active;
       }
     }
   } catch (e) {
     console.warn('Could not read localStorage:', e);
   }
-  return SEED_FALLBACK.filter(t => !deletedSet.has(t.ticket_code)).map(normalizeTicket);
+  return SAMPLE_TEST_ATTENDEES.filter(t => !deletedSet.has(t.ticket_code)).map(normalizeTicket);
 }
 
 function saveStoredTickets(ticketsList) {

@@ -1254,7 +1254,48 @@ export default function AdminDashboard({
           </div>
 
           {/* Masterlist Data Table with Auto-Incremented Sequential Numbers & Auto-Scroll Viewports */}
-          {groupByCollege && selectedDepartment === 'ALL' ? (
+          {tickets.length === 0 ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '60px 24px',
+              background: 'rgba(15, 23, 42, 0.75)',
+              border: '2px dashed rgba(56, 189, 248, 0.35)',
+              borderRadius: '20px',
+              margin: '10px 0 30px',
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4)'
+            }}>
+              <div style={{ fontSize: '3.5rem', marginBottom: '14px' }}>📋</div>
+              <h3 style={{ fontSize: '1.4rem', fontWeight: '900', color: '#FFFFFF', margin: '0 0 8px' }}>
+                Masterlist is Currently Empty
+              </h3>
+              <p style={{ color: '#94A3B8', fontSize: '0.92rem', maxWidth: '540px', margin: '0 auto 24px', lineHeight: '1.5' }}>
+                To test the new auto-scrolling college dividers with 1,400+ student capacity, click below to populate 15 sample students across all 3 colleges.
+              </p>
+              {onLoadSampleAttendees && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={onLoadSampleAttendees}
+                  style={{
+                    padding: '14px 30px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #0284C7 0%, #38BDF8 100%)',
+                    border: 'none',
+                    color: '#FFFFFF',
+                    fontSize: '1.05rem',
+                    fontWeight: '900',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 25px rgba(56, 189, 248, 0.45)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  ⚡ Populate 45 Test Students (15 per College)
+                </motion.button>
+              )}
+            </div>
+          ) : groupByCollege && selectedDepartment === 'ALL' ? (
             <div className="college-divisions-container" style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
               {collegeGroups.map((grp) => {
                 const grpPaid = grp.students.filter(s => s.payment_status === 'paid').length;
