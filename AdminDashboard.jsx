@@ -130,6 +130,7 @@ export default function AdminDashboard({
   onAdmitStudent,
   onDeleteAttendee,
   onFlushDatabase,
+  onLoadSampleAttendees,
   livePings = [],
   highlightedCode = null,
   eventName = "URSPANTROPIKO: URSP Acquaintance Party 2026",
@@ -1201,6 +1202,25 @@ export default function AdminDashboard({
               >
                 🏛️ {groupByCollege ? 'College Dividers: ON' : 'College Dividers: OFF'}
               </motion.button>
+
+              {/* Quick Load 45 Sample Attendees for Scroll Testing */}
+              {onLoadSampleAttendees && (
+                <motion.button
+                  type="button"
+                  className="btn-dup-filter"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={onLoadSampleAttendees}
+                  title="Load 15 test students per college to test auto-scroll viewports"
+                  style={{
+                    background: 'rgba(56, 189, 248, 0.15)',
+                    border: '1.5px solid rgba(56, 189, 248, 0.45)',
+                    color: '#38BDF8'
+                  }}
+                >
+                  ⚡ Load 45 Test Students
+                </motion.button>
+              )}
 
               {/* Complete Database Flush / Reset Button */}
               <motion.button
