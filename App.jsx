@@ -1,0 +1,583 @@
+import React, { useState, useEffect } from 'react';
+import StudentPortal from './StudentPortal';
+import AdminDashboard from './AdminDashboard';
+import UsherScanner from './UsherScanner';
+import BackgroundAmbient from './BackgroundAmbient';
+import { supabase } from './lib/supabase';
+
+const STORAGE_KEY = 'ursp_masterlist_attendees_v4';
+
+const SEED_FALLBACK = [
+  { id: '1', ticket_code: 'TKT-10001', student_id: '2022-01001', full_name: 'John Carlo Reyes', department: 'College of Education', year_level: '3rd Year', program_section: 'BSED 3-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:14 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
+  { id: '2', ticket_code: 'TKT-10002', student_id: '2022-01002', full_name: 'Angela Mae Diaz', department: 'College of Education', year_level: '3rd Year', program_section: 'BEED 3-B', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
+  { id: '3', ticket_code: 'TKT-10003', student_id: '2023-02001', full_name: 'Mark Kevin Cruz', department: 'College of Social Sciences', year_level: '2nd Year', program_section: 'AB-POLSCI 2-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:26 AM', day2_status: 'attended', day2_time: '08:15 PM', attendance_status: 'attended' },
+  { id: '4', ticket_code: 'TKT-10004', student_id: '2021-03001', full_name: 'Sophia Nicole Tan', department: 'College of Business', year_level: '4th Year', program_section: 'BSBA 4-B', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
+  { id: '5', ticket_code: 'TKT-10005', student_id: '2024-04001', full_name: 'Joshua Morales', department: 'College of Social Sciences', year_level: '1st Year', program_section: 'BS-PSYCH 1-A', payment_status: 'paid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
+  { id: '6', ticket_code: 'TKT-10006', student_id: '2023-02002', full_name: 'Patricia Anne Gomez', department: 'College of Education', year_level: '2nd Year', program_section: 'BSED 2-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:35 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
+  { id: '7', ticket_code: 'TKT-10007', student_id: '2022-01003', full_name: 'Gabriel Santos', department: 'College of Social Sciences', year_level: '3rd Year', program_section: 'AB-SOC 3-A', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
+  { id: '8', ticket_code: 'TKT-10008', student_id: '2024-04002', full_name: 'Chloe Denise Lim', department: 'College of Business', year_level: '1st Year', program_section: 'BSBA 1-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:22 AM', day2_status: 'attended', day2_time: '08:30 PM', attendance_status: 'attended' },
+  { id: '9', ticket_code: 'TKT-10009', student_id: '2023-03014', full_name: 'Danilo Mendoza Jr.', department: 'College of Business', year_level: '2nd Year', program_section: 'BSA 2-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:40 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
+  { id: '10', ticket_code: 'TKT-10010', student_id: '2021-01099', full_name: 'Bea Marie Alcantara', department: 'College of Education', year_level: '4th Year', program_section: 'BTLED 4-A', payment_status: 'paid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' }
+];
+
+function normalizeTicket(t) {
+  return {
+    ...t,
+    day1_status: t.day1_status || (t.attendance_status === 'attended' ? 'attended' : 'not_attended'),
+    day1_time: t.day1_time || t.attended_at || (t.attendance_status === 'attended' ? '08:15 AM' : null),
+    day2_status: t.day2_status || 'not_attended',
+    day2_time: t.day2_time || null,
+    attendance_status: (t.day1_status === 'attended' || t.day2_status === 'attended' || t.attendance_status === 'attended') ? 'attended' : 'not_attended'
+  };
+}
+
+function getStoredTickets() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map(normalizeTicket);
+      }
+    }
+  } catch (e) {
+    console.warn('Could not read localStorage:', e);
+  }
+  return SEED_FALLBACK.map(normalizeTicket);
+}
+
+function saveStoredTickets(ticketsList) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(ticketsList));
+  } catch (e) {
+    console.warn('Could not save to localStorage:', e);
+  }
+}
+
+export default function App() {
+  const getRoute = () => {
+    const path = window.location.pathname.toLowerCase();
+    const params = new URLSearchParams(window.location.search);
+    const viewParam = params.get('view') || params.get('tab');
+    
+    if (path.includes('admin') || viewParam === 'admin') return 'admin';
+    if (path.includes('usher') || path.includes('scanner') || viewParam === 'usher') return 'usher';
+    return 'student'; // Default public route
+  };
+
+  const [route, setRoute] = useState(getRoute);
+  const [tickets, setTickets] = useState(getStoredTickets);
+  const [livePings, setLivePings] = useState([]);
+  const [highlightedCode, setHighlightedCode] = useState(null);
+
+  // Sync route on history pop
+  useEffect(() => {
+    const handlePopState = () => {
+      setRoute(getRoute());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Save to localStorage whenever tickets change
+  useEffect(() => {
+    saveStoredTickets(tickets);
+  }, [tickets]);
+
+  // Philippine Standard Time (GMT+8) Formatter
+  const getPHTimeString = () => {
+    try {
+      return new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Manila',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      }).format(new Date());
+    } catch (e) {
+      return new Date().toLocaleTimeString();
+    }
+  };
+
+  const getPHShortTime = () => {
+    try {
+      return new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Manila',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      }).format(new Date());
+    } catch (e) {
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+  };
+
+  const addLivePing = (ping) => {
+    const enriched = {
+      id: 'PING-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      timestamp: getPHTimeString(),
+      ...ping
+    };
+    setLivePings(prev => [enriched, ...prev.slice(0, 19)]);
+    if (ping.ticket_code) {
+      setHighlightedCode(ping.ticket_code);
+      setTimeout(() => {
+        setHighlightedCode(curr => (curr === ping.ticket_code ? null : curr));
+      }, 5000);
+    }
+  };
+
+  // Setup Cross-Tab Broadcast Channel & LocalStorage Storage Event Listener
+  useEffect(() => {
+    let broadcastChannel = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        broadcastChannel = new BroadcastChannel('ursp_live_sync_channel');
+        broadcastChannel.onmessage = (event) => {
+          if (event.data?.type === 'SYNC_TICKETS' && Array.isArray(event.data.tickets)) {
+            setTickets(event.data.tickets.map(normalizeTicket));
+          }
+          if (event.data?.type === 'LIVE_PING' && event.data.ping) {
+            addLivePing(event.data.ping);
+          }
+        };
+      }
+    } catch (e) {}
+
+    const handleStorage = (e) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        try {
+          const fresh = JSON.parse(e.newValue);
+          if (Array.isArray(fresh)) {
+            setTickets(fresh.map(normalizeTicket));
+          }
+        } catch (err) {}
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      if (broadcastChannel) broadcastChannel.close();
+    };
+  }, []);
+
+  const broadcastUpdate = (newTicketsList, ping = null) => {
+    saveStoredTickets(newTicketsList);
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        const ch = new BroadcastChannel('ursp_live_sync_channel');
+        ch.postMessage({
+          type: 'SYNC_TICKETS',
+          tickets: newTicketsList,
+          ping
+        });
+        ch.close();
+      }
+    } catch (e) {}
+    if (ping) {
+      addLivePing(ping);
+    }
+  };
+
+  // 1. Student Registration Handler
+  const handleTicketGenerated = async (newAttendee) => {
+    const record = normalizeTicket({
+      ...newAttendee,
+      id: newAttendee.id || 'REG-' + Date.now(),
+      created_at: newAttendee.created_at || new Date().toISOString(),
+      payment_status: newAttendee.payment_status || 'unpaid',
+      day1_status: 'not_attended',
+      day1_time: null,
+      day2_status: 'not_attended',
+      day2_time: null,
+      attendance_status: 'not_attended'
+    });
+
+    const ping = {
+      type: 'registration',
+      title: '🎉 NEW STUDENT REGISTERED',
+      message: `${record.full_name} (${record.program_section}) registered under ${record.department}!`,
+      ticket_code: record.ticket_code,
+      department: record.department
+    };
+
+    setTickets(prev => {
+      const filtered = prev.filter(t => t.ticket_code !== record.ticket_code && t.student_id !== record.student_id);
+      const nextList = [record, ...filtered];
+      broadcastUpdate(nextList, ping);
+      return nextList;
+    });
+
+    // Supabase DB Sync
+    try {
+      if (supabase && typeof supabase.from === 'function') {
+        supabase.from('attendees').insert([record]).then(() => {}).catch(() => {});
+      }
+    } catch (e) {}
+
+    return record;
+  };
+
+  // 2. Admin Toggle Payment Handler
+  const handleTogglePayment = async (code) => {
+    let ping = null;
+    let nextStatus = 'paid';
+    setTickets(prev => {
+      const nextList = prev.map(t => {
+        if (t.ticket_code === code) {
+          nextStatus = t.payment_status === 'paid' ? 'unpaid' : 'paid';
+          ping = {
+            type: 'payment',
+            title: nextStatus === 'paid' ? '💳 PAYMENT VERIFIED' : '⏳ PAYMENT REVERTED',
+            message: `${t.full_name} (${t.program_section}) is now marked as ${nextStatus.toUpperCase()}.`,
+            ticket_code: code,
+            department: t.department
+          };
+          return { ...t, payment_status: nextStatus };
+        }
+        return t;
+      });
+      broadcastUpdate(nextList, ping);
+      return nextList;
+    });
+
+    // Supabase DB Sync
+    try {
+      if (supabase && typeof supabase.from === 'function') {
+        supabase.from('attendees').update({ payment_status: nextStatus }).eq('ticket_code', code).then(() => {}).catch(() => {});
+      }
+    } catch (e) {}
+  };
+
+  // 3. Admin Bulk Verify Handler
+  const handleBulkVerify = async (section) => {
+    const ping = {
+      type: 'bulk_payment',
+      title: '💳 BULK SECTION VERIFIED',
+      message: `All registered students in section "${section}" were verified as Paid!`,
+      section
+    };
+    setTickets(prev => {
+      const nextList = prev.map(t => (section === 'ALL' || t.program_section === section) ? { ...t, payment_status: 'paid' } : t);
+      broadcastUpdate(nextList, ping);
+      return nextList;
+    });
+
+    // Supabase DB Sync
+    try {
+      if (supabase && typeof supabase.from === 'function') {
+        if (section === 'ALL') {
+          supabase.from('attendees').update({ payment_status: 'paid' }).neq('id', '0').then(() => {}).catch(() => {});
+        } else {
+          supabase.from('attendees').update({ payment_status: 'paid' }).eq('program_section', section).then(() => {}).catch(() => {});
+        }
+      }
+    } catch (e) {}
+  };
+
+  // 4. Usher Gate Admission Handler (Day 1 vs Day 2 Auto PH Time)
+  const handleAdmitStudent = async (code, targetDay = 'day1', customTime = null) => {
+    const timeString = customTime || getPHShortTime();
+    let ping = null;
+    let updatedRecord = null;
+
+    setTickets(prev => {
+      const nextList = prev.map(t => {
+        if (t.ticket_code === code) {
+          const isDay1 = targetDay === 'day1';
+          const updated = {
+            ...t,
+            day1_status: isDay1 ? 'attended' : t.day1_status,
+            day1_time: isDay1 ? timeString : t.day1_time,
+            day2_status: !isDay1 ? 'attended' : t.day2_status,
+            day2_time: !isDay1 ? timeString : t.day2_time,
+            attendance_status: 'attended'
+          };
+          updatedRecord = updated;
+          ping = {
+            type: 'admission',
+            title: `⚡ GATE ADMISSION (${targetDay === 'day1' ? 'DAY 1' : 'DAY 2'})`,
+            message: `${t.full_name} entered the venue at ${timeString} (PST)!`,
+            ticket_code: code,
+            department: t.department,
+            day: targetDay
+          };
+          return updated;
+        }
+        return t;
+      });
+      broadcastUpdate(nextList, ping);
+      return nextList;
+    });
+
+    // Supabase DB Sync
+    try {
+      if (supabase && typeof supabase.from === 'function' && updatedRecord) {
+        supabase.from('attendees').update({
+          day1_status: updatedRecord.day1_status,
+          day1_time: updatedRecord.day1_time,
+          day2_status: updatedRecord.day2_status,
+          day2_time: updatedRecord.day2_time,
+          attendance_status: 'attended'
+        }).eq('ticket_code', code).then(() => {}).catch(() => {});
+      }
+    } catch (e) {}
+  };
+
+  // 5. Delete Attendee Handler (Removes from Local, Broadcast & Supabase DB Table immediately)
+  const handleDeleteAttendee = async (code) => {
+    let deleted = null;
+    setTickets(prev => {
+      deleted = prev.find(t => t.ticket_code === code);
+      const nextList = prev.filter(t => t.ticket_code !== code);
+      const ping = deleted ? {
+        type: 'deletion',
+        title: '🗑️ ATTENDEE REMOVED',
+        message: `${deleted.full_name} (${deleted.student_id} • ${deleted.ticket_code}) was removed from the masterlist.`,
+        ticket_code: code,
+        department: deleted.department
+      } : null;
+      broadcastUpdate(nextList, ping);
+      return nextList;
+    });
+
+    // Real-Time Supabase Database Row Deletion (frees up Supabase table row immediately)
+    try {
+      if (supabase && typeof supabase.from === 'function') {
+        supabase.from('attendees').delete().eq('ticket_code', code).then(() => {}).catch(() => {});
+        supabase.from('tickets').delete().eq('ticket_code', code).then(() => {}).catch(() => {});
+      }
+    } catch (dbErr) {
+      console.warn('Supabase DB row deletion sync:', dbErr);
+    }
+
+    return deleted;
+  };
+
+  const [isAdminAuthed, setIsAdminAuthed] = useState(() => {
+    try {
+      return sessionStorage.getItem('ursp_admin_authed') === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [pendingRoute, setPendingRoute] = useState(null);
+
+  const handleNavigate = (newRoute) => {
+    if (newRoute === 'admin' && !isAdminAuthed) {
+      setPendingRoute('admin');
+      setPinError('');
+      setPinInput('');
+      setShowPinModal(true);
+      return;
+    }
+
+    if (newRoute === 'usher' && !isAdminAuthed) {
+      const params = new URLSearchParams(window.location.search);
+      const hasToken = params.get('token') === 'USHER-MASTER-2026';
+      if (!hasToken) {
+        setPendingRoute('usher');
+        setPinError('');
+        setPinInput('');
+        setShowPinModal(true);
+        return;
+      }
+    }
+
+    setRoute(newRoute);
+    const url = new URL(window.location);
+    url.searchParams.set('view', newRoute);
+    window.history.pushState({}, '', url);
+  };
+
+  const handleUnlockWithPin = (e) => {
+    if (e) e.preventDefault();
+    if (pinInput.trim() === '2026' || pinInput.trim().toUpperCase() === 'SSG2026') {
+      setIsAdminAuthed(true);
+      try {
+        sessionStorage.setItem('ursp_admin_authed', 'true');
+      } catch (err) {}
+      setShowPinModal(false);
+      const target = pendingRoute || 'admin';
+      setRoute(target);
+      const url = new URL(window.location);
+      url.searchParams.set('view', target);
+      window.history.pushState({}, '', url);
+      setPendingRoute(null);
+    } else {
+      setPinError('❌ Incorrect Security PIN. Access denied.');
+    }
+  };
+
+  const handleLockAdmin = () => {
+    setIsAdminAuthed(false);
+    try {
+      sessionStorage.removeItem('ursp_admin_authed');
+    } catch (e) {}
+    setRoute('student');
+    const url = new URL(window.location);
+    url.searchParams.delete('view');
+    url.searchParams.delete('token');
+    window.history.pushState({}, '', url);
+  };
+
+  return (
+    <div className="app-layout">
+      <BackgroundAmbient />
+
+      {/* Role-Based Dynamic Navigation Header */}
+      <header className="global-app-nav">
+        <div className="global-nav-inner">
+          <div className="global-brand" onClick={() => handleNavigate('student')}>
+            <img src="/logo.png" alt="URSP Logo" className="global-nav-logo" />
+            <div className="global-brand-text">
+              <span className="global-brand-title">URSPANTROPIKO 2026</span>
+              <span className="global-brand-sub">
+                {route === 'student' ? 'Student Registration Portal' : route === 'admin' ? '🛡️ SSG Master Control Suite' : '📱 Gate Usher Scanner'}
+              </span>
+            </div>
+          </div>
+
+          {/* ADMIN AUTHENTICATED MODE: Full Role Switcher & Fallback Access */}
+          {isAdminAuthed && (
+            <nav className="global-nav-tabs">
+              <button
+                className={`global-nav-btn ${route === 'student' ? 'active' : ''}`}
+                onClick={() => handleNavigate('student')}
+                title="Direct fallback student registration by Admin"
+              >
+                🎓 Direct Registration
+              </button>
+              <button
+                className={`global-nav-btn ${route === 'admin' ? 'active' : ''}`}
+                onClick={() => handleNavigate('admin')}
+              >
+                🛡️ Admin Dashboard
+                <span className="global-nav-badge">{tickets.length}</span>
+              </button>
+              <button
+                className={`global-nav-btn ${route === 'usher' ? 'active' : ''}`}
+                onClick={() => handleNavigate('usher')}
+              >
+                📱 Usher Scanner
+              </button>
+              <button
+                className="btn-lock-session"
+                onClick={handleLockAdmin}
+                title="Lock admin session and return to public student mode"
+              >
+                🔒 Lock Admin
+              </button>
+            </nav>
+          )}
+
+          {/* PUBLIC STUDENT VIEW: Discreet Officer Login Only (No public admin access) */}
+          {!isAdminAuthed && route === 'student' && (
+            <div className="flex items-center gap-3">
+              <button
+                className="btn-officer-login"
+                onClick={() => {
+                  setPendingRoute('admin');
+                  setPinError('');
+                  setPinInput('');
+                  setShowPinModal(true);
+                }}
+              >
+                🔒 SSG Officer Login
+              </button>
+            </div>
+          )}
+
+          {/* USHER VIEW (When unauthenticated): Simple exit button */}
+          {!isAdminAuthed && route === 'usher' && (
+            <div className="flex items-center gap-3">
+              <button
+                className="btn-exit-scanner"
+                onClick={() => handleNavigate('student')}
+              >
+                ← Exit Scanner
+              </button>
+            </div>
+          )}
+        </div>
+      </header>
+
+      {/* Main View Portals */}
+      <main className="app-main-standalone">
+        {route === 'student' && (
+          <StudentPortal onTicketGenerated={handleTicketGenerated} />
+        )}
+        
+        {route === 'admin' && (
+          <AdminDashboard
+            tickets={tickets}
+            onTogglePayment={handleTogglePayment}
+            onBulkVerify={handleBulkVerify}
+            onAdmitStudent={handleAdmitStudent}
+            onDeleteAttendee={handleDeleteAttendee}
+            livePings={livePings}
+            highlightedCode={highlightedCode}
+          />
+        )}
+        
+        {route === 'usher' && (
+          <UsherScanner
+            tickets={tickets}
+            onAdmitStudent={handleAdmitStudent}
+          />
+        )}
+      </main>
+
+      {/* Security PIN Authorization Modal */}
+      {showPinModal && (
+        <div className="modal-security-overlay" onClick={() => setShowPinModal(false)}>
+          <div className="modal-security-box" onClick={(e) => e.stopPropagation()}>
+            <div className="security-shield-icon">🛡️</div>
+            <h3 className="security-modal-title">SSG Master Security Clearance</h3>
+            <p className="security-modal-desc">
+              Protected Officer Access. Enter the 4-digit Master Security PIN to authorize administrative controls.
+            </p>
+
+            <form onSubmit={handleUnlockWithPin} className="security-form">
+              <input
+                type="password"
+                maxLength={8}
+                placeholder="Enter PIN (e.g. 2026)"
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value)}
+                autoFocus
+                className="security-pin-input"
+              />
+
+              {pinError && (
+                <div className="security-error-msg">{pinError}</div>
+              )}
+
+              <div className="security-modal-actions">
+                <button
+                  type="button"
+                  className="btn-security-cancel"
+                  onClick={() => setShowPinModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-security-unlock"
+                >
+                  🔓 Unlock Access
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
