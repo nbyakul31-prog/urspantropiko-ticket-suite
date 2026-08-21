@@ -349,6 +349,9 @@ export default function App() {
     const cleanupCloudSync = listenToCloudUpdates((cloudTickets, ping) => {
       if (Array.isArray(cloudTickets) && cloudTickets.length > 0 && isMounted) {
         setTickets(prev => {
+          const prevCodes = new Set(prev.map(p => p.ticket_code));
+          const newArrivals = cloudTickets.filter(ct => !prevCodes.has(ct.ticket_code));
+
           const map = new Map();
           cloudTickets.forEach(t => map.set(t.ticket_code, normalizeTicket(t)));
           prev.forEach(t => {
@@ -358,6 +361,28 @@ export default function App() {
           });
           const merged = Array.from(map.values());
           saveStoredTickets(merged);
+
+          // If no explicit ping was passed over the wire, generate from detected new attendee:
+          if (!ping && newArrivals.length > 0) {
+            if (newArrivals.length === 1) {
+              const na = newArrivals[0];
+              addLivePing({
+                type: 'registration',
+                title: '🎉 STUDENT REGISTERED',
+                message: `${na.full_name} (${na.student_id} • ${na.ticket_code}) was registered to the masterlist.`,
+                ticket_code: na.ticket_code,
+                department: na.department
+              });
+            } else {
+              addLivePing({
+                type: 'registration',
+                title: `⚡ BATCH REGISTRATIONS (${newArrivals.length})`,
+                message: `✨ ${newArrivals.length} students registered online (Masterlist updated).`,
+                ticket_code: newArrivals[0].ticket_code
+              });
+            }
+          }
+
           return merged;
         });
       }
