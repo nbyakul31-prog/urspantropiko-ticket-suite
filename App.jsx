@@ -9,6 +9,7 @@ import { checkPinRateLimit, recordFailedPinAttempt, resetPinAttempts, sanitizeTe
 import { broadcastCloudUpdate, listenToCloudUpdates } from './lib/cloudSync';
 
 const STORAGE_KEY = 'ursp_masterlist_attendees_v4';
+const DELETED_KEY = 'ursp_masterlist_deleted_v4';
 
 const SEED_FALLBACK = [
   { id: '1', ticket_code: 'TKT-10001', student_id: '2022-01001', full_name: 'John Carlo Reyes', department: 'College of Education', year_level: '3rd Year', program_section: 'BSED 3-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:14 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
@@ -23,6 +24,30 @@ const SEED_FALLBACK = [
   { id: '10', ticket_code: 'TKT-10010', student_id: '2021-01099', full_name: 'Bea Marie Alcantara', department: 'College of Education', year_level: '4th Year', program_section: 'BTLED 4-A', payment_status: 'paid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' }
 ];
 
+function getDeletedCodes() {
+  try {
+    const raw = localStorage.getItem(DELETED_KEY);
+    if (raw) return new Set(JSON.parse(raw));
+  } catch (e) {}
+  return new Set();
+}
+
+function recordDeletedCode(code) {
+  try {
+    const set = getDeletedCodes();
+    set.add(code);
+    localStorage.setItem(DELETED_KEY, JSON.stringify(Array.from(set)));
+  } catch (e) {}
+}
+
+function unrecordDeletedCode(code) {
+  try {
+    const set = getDeletedCodes();
+    set.delete(code);
+    localStorage.setItem(DELETED_KEY, JSON.stringify(Array.from(set)));
+  } catch (e) {}
+}
+
 function normalizeTicket(t) {
   return {
     ...t,
@@ -35,18 +60,19 @@ function normalizeTicket(t) {
 }
 
 function getStoredTickets() {
+  const deletedSet = getDeletedCodes();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map(normalizeTicket);
+        return parsed.filter(t => !deletedSet.has(t.ticket_code)).map(normalizeTicket);
       }
     }
   } catch (e) {
     console.warn('Could not read localStorage:', e);
   }
-  return SEED_FALLBACK.map(normalizeTicket);
+  return SEED_FALLBACK.filter(t => !deletedSet.has(t.ticket_code)).map(normalizeTicket);
 }
 
 function saveStoredTickets(ticketsList) {
@@ -274,14 +300,15 @@ export default function App() {
 
     // 1. Query Supabase Remote DB upon loading (Syncs offline registrations seamlessly)
     async function syncFromSupabase() {
+      const deletedSet = getDeletedCodes();
       try {
         if (supabase && typeof supabase.from === 'function') {
           const { data, error } = await supabase.from('attendees').select('*').order('created_at', { ascending: false });
           if (!error && Array.isArray(data) && data.length > 0 && isMounted) {
             setTickets(prev => {
               const remoteMap = new Map();
-              data.forEach(t => remoteMap.set(t.ticket_code, normalizeTicket(t)));
-              prev.forEach(t => {
+              data.filter(t => !deletedSet.has(t.ticket_code)).forEach(t => remoteMap.set(t.ticket_code, normalizeTicket(t)));
+              prev.filter(t => !deletedSet.has(t.ticket_code)).forEach(t => {
                 if (!remoteMap.has(t.ticket_code)) {
                   remoteMap.set(t.ticket_code, t);
                 }
@@ -306,7 +333,8 @@ export default function App() {
         channel = supabase
           .channel('public_attendees_live_feed')
           .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendees' }, payload => {
-            if (payload.new && isMounted) {
+            const deletedSet = getDeletedCodes();
+            if (payload.new && !deletedSet.has(payload.new.ticket_code) && isMounted) {
               const newRecord = normalizeTicket(payload.new);
               setTickets(prev => {
                 if (prev.some(t => t.ticket_code === newRecord.ticket_code)) return prev;
@@ -316,8 +344,8 @@ export default function App() {
               });
               addLivePing({
                 type: 'registration',
-                title: '🎉 LIVE CLOUD REGISTRATION',
-                message: `${payload.new.full_name} (${payload.new.program_section}) registered via Vercel!`,
+                title: '🎉 STUDENT REGISTERED',
+                message: `${payload.new.full_name} (${payload.new.student_id} • ${payload.new.ticket_code}) was registered to the masterlist.`,
                 ticket_code: payload.new.ticket_code,
                 department: payload.new.department
               });
@@ -325,6 +353,7 @@ export default function App() {
           })
           .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'attendees' }, payload => {
             if (payload.old && isMounted) {
+              recordDeletedCode(payload.old.ticket_code);
               setTickets(prev => {
                 const next = prev.filter(t => t.ticket_code !== payload.old.ticket_code && t.id !== payload.old.id);
                 saveStoredTickets(next);
@@ -333,7 +362,8 @@ export default function App() {
             }
           })
           .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'attendees' }, payload => {
-            if (payload.new && isMounted) {
+            const deletedSet = getDeletedCodes();
+            if (payload.new && !deletedSet.has(payload.new.ticket_code) && isMounted) {
               setTickets(prev => {
                 const next = prev.map(t => t.ticket_code === payload.new.ticket_code ? normalizeTicket(payload.new) : t);
                 saveStoredTickets(next);
@@ -347,20 +377,14 @@ export default function App() {
 
     // 3. Real-Time Cloud Listener for Cross-Device Sync (Phone <-> PC Admin)
     const cleanupCloudSync = listenToCloudUpdates((cloudTickets, ping) => {
-      if (Array.isArray(cloudTickets) && cloudTickets.length > 0 && isMounted) {
+      const deletedSet = getDeletedCodes();
+      if (Array.isArray(cloudTickets) && isMounted) {
         setTickets(prev => {
+          const filteredCloud = cloudTickets.filter(t => !deletedSet.has(t.ticket_code)).map(normalizeTicket);
           const prevCodes = new Set(prev.map(p => p.ticket_code));
-          const newArrivals = cloudTickets.filter(ct => !prevCodes.has(ct.ticket_code));
+          const newArrivals = filteredCloud.filter(ct => !prevCodes.has(ct.ticket_code));
 
-          const map = new Map();
-          cloudTickets.forEach(t => map.set(t.ticket_code, normalizeTicket(t)));
-          prev.forEach(t => {
-            if (!map.has(t.ticket_code)) {
-              map.set(t.ticket_code, t);
-            }
-          });
-          const merged = Array.from(map.values());
-          saveStoredTickets(merged);
+          saveStoredTickets(filteredCloud);
 
           // If no explicit ping was passed over the wire, generate from detected new attendee:
           if (!ping && newArrivals.length > 0) {
@@ -383,7 +407,7 @@ export default function App() {
             }
           }
 
-          return merged;
+          return filteredCloud;
         });
       }
       if (ping && isMounted) {
@@ -576,6 +600,7 @@ export default function App() {
 
   // 5. Delete Attendee Handler (Removes from Local, Broadcast & Supabase DB Table immediately)
   const handleDeleteAttendee = async (code) => {
+    recordDeletedCode(code);
     let deleted = null;
     setTickets(prev => {
       deleted = prev.find(t => t.ticket_code === code);
