@@ -737,10 +737,6 @@ export default function AdminDashboard({
     printWindow.document.close();
   };
 
-  const [dismissedPingId, setDismissedPingId] = useState(null);
-
-  const activePing = livePings.length > 0 && livePings[0].id !== dismissedPingId ? livePings[0] : null;
-
   return (
     <motion.div
       className="admin-root-container"
@@ -749,74 +745,6 @@ export default function AdminDashboard({
       exit={{ opacity: 0, y: 20 }}
       transition={{ duration: 0.3 }}
     >
-      {/* Floating Live Activity Toast Notification (Fixed cleanly below Navbar) */}
-      <AnimatePresence>
-        {activePing && (
-          <motion.div
-            key={activePing.id}
-            initial={{ opacity: 0, y: -30, scale: 0.92, x: 20 }}
-            animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
-            exit={{ opacity: 0, y: -20, scale: 0.92, x: 20 }}
-            transition={{ type: "spring", stiffness: 400, damping: 25 }}
-            style={{
-              position: 'fixed',
-              top: '82px',
-              right: '24px',
-              zIndex: 99999,
-              background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.96) 0%, rgba(30, 41, 59, 0.96) 100%)',
-              border: activePing.type === 'admission' ? '2px solid #10B981' : activePing.type === 'deletion' ? '2px solid #EF4444' : '2px solid #FFD100',
-              borderRadius: '14px',
-              padding: '12px 18px',
-              boxShadow: '0 16px 40px rgba(0,0,0,0.7), 0 0 25px rgba(255, 209, 0, 0.25)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              maxWidth: '420px',
-              backdropFilter: 'blur(20px)'
-            }}
-          >
-            <div style={{
-              fontSize: '1.4rem',
-              background: activePing.type === 'admission' ? 'rgba(16, 185, 129, 0.2)' : activePing.type === 'deletion' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 209, 0, 0.2)',
-              padding: '8px',
-              borderRadius: '10px',
-              border: `1px solid ${activePing.type === 'admission' ? '#10B981' : activePing.type === 'deletion' ? '#EF4444' : '#FFD100'}`
-            }}>
-              {activePing.type === 'admission' ? '⚡' : activePing.type === 'deletion' ? '🗑️' : '🎉'}
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '0.75rem', fontWeight: '800', color: activePing.type === 'admission' ? '#34D399' : activePing.type === 'deletion' ? '#F87171' : '#FEF08A', textTransform: 'uppercase', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>{activePing.title}</span>
-                <span style={{ color: '#94A3B8', fontSize: '0.7rem' }}>{activePing.timestamp}</span>
-              </div>
-              <div style={{ fontSize: '0.82rem', color: '#FFFFFF', fontWeight: '600', marginTop: '2px', lineHeight: '1.3' }}>
-                {activePing.message}
-              </div>
-            </div>
-            <button
-              onClick={() => setDismissedPingId(activePing.id)}
-              style={{
-                background: 'rgba(255,255,255,0.08)',
-                border: 'none',
-                color: '#94A3B8',
-                cursor: 'pointer',
-                borderRadius: '50%',
-                width: '22px',
-                height: '22px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '11px',
-                marginLeft: '4px'
-              }}
-              title="Dismiss notification"
-            >
-              ✕
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Top Hero Brand Header with Motion Reveal & Watermark Clock */}
       <motion.section
         className="admin-hero-banner"
