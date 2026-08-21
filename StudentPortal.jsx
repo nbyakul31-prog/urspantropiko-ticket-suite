@@ -400,7 +400,7 @@ export default function StudentPortal({ onTicketGenerated }) {
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.5, duration: 0.3 }}
-              style={{ marginBottom: '10px' }}
+              style={{ marginBottom: '18px' }}
             >
               <div className="portal-form-group" style={{ flex: 1 }}>
                 <label className="portal-label">Year Level *</label>
@@ -429,32 +429,6 @@ export default function StudentPortal({ onTicketGenerated }) {
                 />
               </div>
             </motion.div>
-
-            {selectedCollegeObj?.sampleSections && (
-              <div style={{ marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '10.5px', color: '#94A3B8', fontWeight: 'bold' }}>Quick Pick:</span>
-                {selectedCollegeObj.sampleSections.slice(0, 5).map(sec => (
-                  <button
-                    key={sec}
-                    type="button"
-                    onClick={() => setSection(sec)}
-                    style={{
-                      background: section === sec ? `${selectedCollegeObj.color}33` : 'rgba(255,255,255,0.06)',
-                      border: section === sec ? `1px solid ${selectedCollegeObj.color}` : '1px solid rgba(255,255,255,0.12)',
-                      color: section === sec ? '#FEF08A' : '#CBD5E1',
-                      borderRadius: '6px',
-                      padding: '2px 8px',
-                      fontSize: '11px',
-                      cursor: 'pointer',
-                      fontWeight: section === sec ? '800' : '500',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    {sec}
-                  </button>
-                ))}
-              </div>
-            )}
 
             <motion.button
               type="submit"
