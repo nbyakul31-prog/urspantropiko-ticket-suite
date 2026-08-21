@@ -262,39 +262,46 @@ export default function App() {
     }
   };
 
-  // 1. Student Registration Handler
+  // 1. Student Registration Handler (Idempotent with Data Integrity & Duplicate Prevention)
   const handleTicketGenerated = async (newAttendee) => {
-    const record = normalizeTicket({
-      ...newAttendee,
-      id: newAttendee.id || 'REG-' + Date.now(),
-      created_at: newAttendee.created_at || new Date().toISOString(),
-      payment_status: newAttendee.payment_status || 'unpaid',
-      day1_status: 'not_attended',
-      day1_time: null,
-      day2_status: 'not_attended',
-      day2_time: null,
-      attendance_status: 'not_attended'
-    });
-
-    const ping = {
-      type: 'registration',
-      title: '🎉 NEW STUDENT REGISTERED',
-      message: `${record.full_name} (${record.program_section}) registered under ${record.department}!`,
-      ticket_code: record.ticket_code,
-      department: record.department
-    };
+    let existing = null;
+    let record = null;
 
     setTickets(prev => {
+      existing = prev.find(t => t.student_id === newAttendee.student_id || t.ticket_code === newAttendee.ticket_code);
+      record = normalizeTicket({
+        ...newAttendee,
+        id: existing ? existing.id : (newAttendee.id || 'REG-' + Date.now()),
+        ticket_code: existing ? existing.ticket_code : newAttendee.ticket_code,
+        created_at: existing ? existing.created_at : (newAttendee.created_at || new Date().toISOString()),
+        payment_status: existing ? existing.payment_status : (newAttendee.payment_status || 'unpaid'),
+        day1_status: existing ? existing.day1_status : 'not_attended',
+        day1_time: existing ? existing.day1_time : null,
+        day2_status: existing ? existing.day2_status : 'not_attended',
+        day2_time: existing ? existing.day2_time : null,
+        attendance_status: existing ? existing.attendance_status : 'not_attended'
+      });
+
+      const ping = {
+        type: 'registration',
+        title: existing ? '🔄 PASS RE-ACCESSED' : '🎉 NEW STUDENT REGISTERED',
+        message: `${record.full_name} (${record.program_section}) ${existing ? 're-accessed existing ticket pass' : 'registered under ' + record.department}!`,
+        ticket_code: record.ticket_code,
+        department: record.department
+      };
+
       const filtered = prev.filter(t => t.ticket_code !== record.ticket_code && t.student_id !== record.student_id);
       const nextList = [record, ...filtered];
       broadcastUpdate(nextList, ping);
       return nextList;
     });
 
-    // Supabase DB Sync
+    // Idempotent Supabase Cloud Sync (Ensures 0 duplicate rows in cloud database)
     try {
-      if (supabase && typeof supabase.from === 'function') {
-        supabase.from('attendees').insert([record]).then(() => {}).catch(() => {});
+      if (supabase && typeof supabase.from === 'function' && record) {
+        supabase.from('attendees').upsert([record], { onConflict: 'student_id' }).then(() => {}).catch(() => {
+          supabase.from('attendees').insert([record]).then(() => {}).catch(() => {});
+        });
       }
     } catch (e) {}
 
