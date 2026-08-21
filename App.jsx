@@ -379,34 +379,12 @@ export default function App() {
     const cleanupCloudSync = listenToCloudUpdates((cloudTickets, ping) => {
       const deletedSet = getDeletedCodes();
       if (Array.isArray(cloudTickets) && isMounted) {
+        const filteredCloud = cloudTickets.filter(t => !deletedSet.has(t.ticket_code)).map(normalizeTicket);
+        saveStoredTickets(filteredCloud);
         setTickets(prev => {
-          const filteredCloud = cloudTickets.filter(t => !deletedSet.has(t.ticket_code)).map(normalizeTicket);
-          const prevCodes = new Set(prev.map(p => p.ticket_code));
-          const newArrivals = filteredCloud.filter(ct => !prevCodes.has(ct.ticket_code));
-
-          saveStoredTickets(filteredCloud);
-
-          // If no explicit ping was passed over the wire, generate from detected new attendee:
-          if (!ping && newArrivals.length > 0) {
-            if (newArrivals.length === 1) {
-              const na = newArrivals[0];
-              addLivePing({
-                type: 'registration',
-                title: '🎉 STUDENT REGISTERED',
-                message: `${na.full_name} (${na.student_id} • ${na.ticket_code}) was registered to the masterlist.`,
-                ticket_code: na.ticket_code,
-                department: na.department
-              });
-            } else {
-              addLivePing({
-                type: 'registration',
-                title: `⚡ BATCH REGISTRATIONS (${newArrivals.length})`,
-                message: `✨ ${newArrivals.length} students registered online (Masterlist updated).`,
-                ticket_code: newArrivals[0].ticket_code
-              });
-            }
-          }
-
+          const prevHash = prev.map(t => `${t.ticket_code}:${t.payment_status}:${t.day1_status}:${t.day2_status}`).join('|');
+          const nextHash = filteredCloud.map(t => `${t.ticket_code}:${t.payment_status}:${t.day1_status}:${t.day2_status}`).join('|');
+          if (prevHash === nextHash) return prev;
           return filteredCloud;
         });
       }
