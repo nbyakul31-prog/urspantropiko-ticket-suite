@@ -96,11 +96,12 @@ export default function App() {
   const [livePings, setLivePings] = useState([]);
   const [highlightedCode, setHighlightedCode] = useState(null);
 
-  // Live Toast Notification System (5-second auto-dismiss with deduplication & batch incrementer)
-  const [activeToasts, setActiveToasts] = useState([]);
+  // Single Unified Toast System (Strictly 1 Toast with Dynamic +3s Extension per new inquiry/registree)
+  const [activeToast, setActiveToast] = useState(null);
+  const toastTimeoutRef = useRef(null);
+  const toastExpireTimestampRef = useRef(0);
+  const activeRegCountRef = useRef(0);
   const seenPingsMap = useRef(new Map());
-  const pendingRegistrationsCountRef = useRef(0);
-  const regBatchTimerRef = useRef(null);
 
   // Initial Route Security Check (Intercept direct ?view=admin links)
   useEffect(() => {
@@ -163,20 +164,42 @@ export default function App() {
     }
   };
 
-  const triggerToast = (toastObj) => {
-    setActiveToasts(prev => {
-      // Remove any identical toast message or id to prevent double stacking
-      const filtered = prev.filter(t => t.id !== toastObj.id && t.message !== toastObj.message);
-      return [toastObj, ...filtered.slice(0, 1)]; // Keep at most 2 active toasts on screen
-    });
-    // 5-second automatic timer
-    setTimeout(() => {
-      setActiveToasts(prev => prev.filter(t => t.id !== toastObj.id));
-    }, 5000);
+  const removeToast = () => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+      toastTimeoutRef.current = null;
+    }
+    setActiveToast(null);
+    activeRegCountRef.current = 0;
   };
 
-  const removeToast = (id) => {
-    setActiveToasts(prev => prev.filter(t => t.id !== id));
+  const showOrExtendToast = (toastData, extraSeconds = 5) => {
+    const now = Date.now();
+    const durationMs = extraSeconds * 1000;
+
+    let newExpire = now + durationMs;
+    if (activeToast && toastExpireTimestampRef.current > now) {
+      // Add extraSeconds to current remaining countdown timer
+      newExpire = Math.max(newExpire, toastExpireTimestampRef.current + durationMs);
+    }
+    toastExpireTimestampRef.current = newExpire;
+    const remainingMs = Math.max(1000, newExpire - now);
+
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+
+    setActiveToast({
+      ...toastData,
+      durationMs: remainingMs,
+      key: 'toast-' + Date.now()
+    });
+
+    toastTimeoutRef.current = setTimeout(() => {
+      setActiveToast(null);
+      activeRegCountRef.current = 0;
+      toastTimeoutRef.current = null;
+    }, remainingMs);
   };
 
   const addLivePing = (ping) => {
@@ -187,8 +210,8 @@ export default function App() {
     const now = Date.now();
     if (seenPingsMap.current.has(dedupeKey)) {
       const lastSeen = seenPingsMap.current.get(dedupeKey);
-      if (now - lastSeen < 4000) {
-        return; // Ignore duplicate event within 4 seconds
+      if (now - lastSeen < 3500) {
+        return; // Skip duplicate event within 3.5s
       }
     }
     seenPingsMap.current.set(dedupeKey, now);
@@ -214,35 +237,35 @@ export default function App() {
       }, 5000);
     }
 
-    // REGISTRATION NOTIFICATIONS: Batch & Incremental Summary Mode
-    // Eliminates per-individual popup overload for high system stability
+    // REGISTRATION TOAST: Single Toast with +3s Extension per new registration
     if (ping.type === 'registration') {
-      pendingRegistrationsCountRef.current += 1;
-      if (regBatchTimerRef.current) clearTimeout(regBatchTimerRef.current);
+      activeRegCountRef.current += 1;
+      const count = activeRegCountRef.current;
 
-      regBatchTimerRef.current = setTimeout(() => {
-        const count = pendingRegistrationsCountRef.current;
-        pendingRegistrationsCountRef.current = 0;
-        regBatchTimerRef.current = null;
+      const regToast = {
+        id: 'REG-LIVE',
+        type: 'registration',
+        title: count === 1 ? '🎉 NEW REGISTRATION' : `⚡ INCOMING REGISTRATIONS (${count})`,
+        message: count === 1
+          ? '✨ 1 new student registered online (Masterlist updated)'
+          : `✨ ${count} students registered online (+3s added • Masterlist updated)`,
+        timestamp: getPHTimeString(),
+        count
+      };
 
-        if (count > 0) {
-          const batchToast = {
-            id: 'REG-BATCH-' + Date.now(),
-            timestamp: getPHTimeString(),
-            type: 'registration',
-            title: count === 1 ? '🎉 NEW REGISTRATION' : '⚡ BATCH REGISTRATIONS',
-            message: count === 1
-              ? '✨ A new student submitted their registration (Masterlist updated)'
-              : `⚡ ${count} students submitted registrations online (Masterlist updated)`
-          };
-          triggerToast(batchToast);
-        }
-      }, 1200);
+      // 1st registration gets 5s; each additional registration adds +3s to the staying timer!
+      const secondsToAdd = count === 1 ? 5 : 3;
+      showOrExtendToast(regToast, secondsToAdd);
       return;
     }
 
-    // Action Toasts (Payment, Admission, Deletion): Deduplicated single toast
-    triggerToast(enriched);
+    // ACTION TOAST (Payment, Gate Admission, Attendee Removed):
+    // Single 5-second toast replacing whatever is currently on screen
+    activeRegCountRef.current = 0;
+    showOrExtendToast({
+      ...enriched,
+      id: 'ACTION-' + Date.now()
+    }, 5);
   };
 
   // Setup Cross-Tab Broadcast Channel, LocalStorage & Supabase Real-Time Sync
@@ -645,28 +668,28 @@ export default function App() {
     <div className="app-layout">
       <BackgroundAmbient />
 
-      {/* Floating Real-Time Live Toast Notifications: Displayed ONLY in Admin Dashboard (5-Second Expiry & Rate-Limited) */}
+      {/* Floating Single Real-Time Toast Notification: Strictly ONLY 1 Toast on Screen with Dynamic +3s Extension */}
       {isAdminAuthed && route === 'admin' && (
         <div className="global-toast-container">
-          <AnimatePresence>
-            {activeToasts.map(toast => (
+          <AnimatePresence mode="wait">
+            {activeToast && (
               <motion.div
-                key={toast.id}
-                className={`toast-card toast-${toast.type || 'registration'}`}
-                initial={{ opacity: 0, y: -20, scale: 0.92, x: 20 }}
-                animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
-                exit={{ opacity: 0, scale: 0.88, y: -15, transition: { duration: 0.25 } }}
-                transition={{ type: "spring", stiffness: 380, damping: 25 }}
+                key={activeToast.key || activeToast.id}
+                className={`toast-card toast-${activeToast.type || 'registration'}`}
+                initial={{ opacity: 0, y: -20, scale: 0.94 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9, y: -12, transition: { duration: 0.2 } }}
+                transition={{ type: "spring", stiffness: 420, damping: 28 }}
               >
                 <div className="toast-header">
                   <span className="toast-title-badge">
-                    {toast.type === 'registration' ? '🎉' : toast.type === 'payment' ? '💳' : toast.type === 'admission' ? '⚡' : toast.type === 'deletion' ? '🗑️' : '✨'} {toast.title || 'NOTIFICATION'}
+                    {activeToast.type === 'registration' ? '🎉' : activeToast.type === 'payment' ? '💳' : activeToast.type === 'admission' ? '⚡' : activeToast.type === 'deletion' ? '🗑️' : '✨'} {activeToast.title || 'NOTIFICATION'}
                   </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span className="toast-time">{toast.timestamp}</span>
+                    <span className="toast-time">{activeToast.timestamp}</span>
                     <button
                       className="toast-close-btn"
-                      onClick={() => removeToast(toast.id)}
+                      onClick={removeToast}
                       title="Dismiss notification"
                     >
                       ✕
@@ -675,13 +698,19 @@ export default function App() {
                 </div>
 
                 <div className="toast-msg">
-                  {toast.message}
+                  {activeToast.message}
                 </div>
 
-                {/* 5-Second Animated Countdown Progress Bar */}
-                <div className="toast-progress-bar" />
+                {/* Dynamic Remaining Countdown Progress Bar */}
+                <div
+                  key={activeToast.key}
+                  className="toast-progress-bar"
+                  style={{
+                    animation: `toastCountdown ${activeToast.durationMs || 5000}ms linear forwards`
+                  }}
+                />
               </motion.div>
-            ))}
+            )}
           </AnimatePresence>
         </div>
       )}
