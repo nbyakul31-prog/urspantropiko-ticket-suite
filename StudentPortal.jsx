@@ -39,7 +39,7 @@ const COLLEGES_DATA = [
   }
 ];
 
-export default function StudentPortal({ onTicketGenerated }) {
+export default function StudentPortal({ onTicketGenerated, registrationLocked = false }) {
   const [studentId, setStudentId] = useState('');
   const [lastName, setLastName] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -51,6 +51,84 @@ export default function StudentPortal({ onTicketGenerated }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const badgeRef = useRef(null);
+
+  // Show locked registration gate screen
+  if (registrationLocked) {
+    return (
+      <div style={{
+        minHeight: '70vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '40px 24px',
+        textAlign: 'center'
+      }}>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+          style={{
+            background: 'linear-gradient(135deg, rgba(30,10,10,0.92) 0%, rgba(15,23,42,0.97) 100%)',
+            border: '2px solid rgba(239,68,68,0.55)',
+            borderRadius: '24px',
+            padding: '48px 40px',
+            maxWidth: '520px',
+            width: '100%',
+            boxShadow: '0 25px 60px rgba(239,68,68,0.2)'
+          }}
+        >
+          <motion.div
+            animate={{ scale: [1, 1.08, 1] }}
+            transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+            style={{ fontSize: '5rem', marginBottom: '20px' }}
+          >
+            🔒
+          </motion.div>
+          <h2 style={{ color: '#FCA5A5', fontWeight: '900', fontSize: '1.6rem', margin: '0 0 10px' }}>
+            Registration is Currently Closed
+          </h2>
+          <p style={{ color: '#94A3B8', fontSize: '14px', lineHeight: '1.7', margin: '0 0 28px' }}>
+            The <strong style={{ color: '#FFF' }}>URSPANTROPIKO 2026</strong> registration portal has been temporarily locked by the SSG Admin. Please wait for the official opening or contact your class representative.
+          </p>
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '10px',
+            justifyContent: 'center',
+            marginBottom: '24px'
+          }}>
+            {[
+              { icon: '🌴', text: 'URSP Acquaintance Party' },
+              { icon: '📅', text: 'Sept 17–18, 2026' },
+              { icon: '📍', text: 'URS Pililla Campus' }
+            ].map(p => (
+              <span key={p.text} style={{
+                padding: '6px 14px',
+                borderRadius: '20px',
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                color: '#CBD5E1',
+                fontSize: '12px',
+                fontWeight: '700'
+              }}>{p.icon} {p.text}</span>
+            ))}
+          </div>
+          <div style={{
+            padding: '14px 18px',
+            background: 'rgba(239,68,68,0.1)',
+            border: '1px solid rgba(239,68,68,0.25)',
+            borderRadius: '12px',
+            color: '#FCA5A5',
+            fontSize: '12px',
+            lineHeight: '1.6'
+          }}>
+            ⚠️ Registration will re-open once the SSG Admin unlocks the portal. Check back soon!
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   const selectedCollegeObj = COLLEGES_DATA.find(c => c.name === department) || COLLEGES_DATA[0];
 

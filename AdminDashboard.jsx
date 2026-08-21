@@ -252,6 +252,30 @@ export default function AdminDashboard({
   const [showExcelPreviewModal, setShowExcelPreviewModal] = useState(false);
   const [previewPaperSize, setPreviewPaperSize] = useState('a4_landscape');
 
+  // Official Event Registration QR Lock State (SSG Admin Only)
+  const [registrationLocked, setRegistrationLocked] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ursp_registration_locked');
+      return saved === 'true'; // default: unlocked (false)
+    } catch (e) { return false; }
+  });
+
+  const handleToggleRegistrationLock = () => {
+    setRegistrationLocked(prev => {
+      const next = !prev;
+      try { localStorage.setItem('ursp_registration_locked', String(next)); } catch (e) {}
+      return next;
+    });
+  };
+
+  // QR Carousel state (0=Official Event QR, 1=Usher Pass, 2=Student Reg)
+  const [qrCarouselSlide, setQrCarouselSlide] = useState(0);
+  const QR_SLIDES = [
+    { id: 'official', label: '🎟️ Official Event QR', badge: 'OFFICIAL REGISTRATION' },
+    { id: 'usher',    label: '👮 Usher Pass',        badge: 'MARSHAL DISPATCH PASS' },
+    { id: 'student',  label: '📝 Student Reg',       badge: 'PUBLIC REGISTRATION PASS' }
+  ];
+
   // Dynamic Public Live Domain (Defaults to Vercel production or custom Cloudflare tunnel)
   const [publicDomain, setPublicDomain] = useState(() => {
     try {
@@ -1869,104 +1893,358 @@ export default function AdminDashboard({
         </motion.section>
       )}
 
-      {/* TAB 3: ACCESS CONTROL & USHER MANAGEMENT (Centered & Polished) */}
+      {/* TAB 3: ACCESS CONTROL & USHER MANAGEMENT — QR Carousel + Cards */}
       {activeTab === 'access' && (
         <motion.section
-          style={{ maxWidth: '1050px', margin: '0 auto' }}
+          style={{ maxWidth: '1100px', margin: '0 auto' }}
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.3 }}
         >
-          <div className="access-hub-grid">
-            {/* Card 1: Master Usher Scanner Pass */}
-            <motion.div
-              className="access-hub-card"
-              initial={{ opacity: 0, y: 15 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              whileHover={{ scale: 1.025, y: -4 }}
-              transition={{ type: "spring", stiffness: 350, damping: 22 }}
-            >
-              <div className="badge-tag">MARSHAL DISPATCH PASS</div>
-              <h3 className="mt-3 text-lg font-bold text-white">Single Master Usher Access Pass</h3>
-              <p className="text-xs text-muted mt-1 mb-2">
-                Ushers scan this single QR from your screen with their mobile camera to unlock the gate scanner.
-              </p>
 
-              <div className="qr-container-box">
-                <QRCode value={masterUsherUrl} size={180} level="H" />
-              </div>
-
-              <div className="w-full flex flex-col gap-2 mt-2">
-                <div className="text-xs font-mono text-blue bg-[#0D1322] p-2 rounded border border-border-color break-all text-center">
-                  {masterUsherUrl}
+          {/* ─── OFFICIAL EVENT REGISTRATION QR CAROUSEL PANEL ─── */}
+          <motion.div
+            style={{
+              background: registrationLocked
+                ? 'linear-gradient(135deg, rgba(30,10,10,0.92) 0%, rgba(15,23,42,0.97) 100%)'
+                : 'linear-gradient(135deg, rgba(5,22,45,0.96) 0%, rgba(15,23,42,0.97) 100%)',
+              border: registrationLocked ? '2px solid rgba(239,68,68,0.55)' : '2px solid rgba(99,102,241,0.5)',
+              borderRadius: '22px',
+              padding: '0',
+              marginBottom: '30px',
+              overflow: 'hidden',
+              boxShadow: registrationLocked
+                ? '0 20px 60px rgba(239,68,68,0.18)'
+                : '0 20px 60px rgba(99,102,241,0.18)'
+            }}
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+          >
+            {/* Carousel Banner Header */}
+            <div style={{
+              padding: '16px 24px',
+              background: registrationLocked
+                ? 'linear-gradient(90deg, rgba(239,68,68,0.25) 0%, rgba(15,23,42,0.0) 100%)'
+                : 'linear-gradient(90deg, rgba(99,102,241,0.25) 0%, rgba(15,23,42,0.0) 100%)',
+              borderBottom: '1px solid rgba(255,255,255,0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '1.8rem' }}>🎟️</span>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: '900', color: '#FFFFFF', letterSpacing: '0.5px' }}>
+                    URSPANTROPIKO 2026 — Official Registration QR
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
+                    🌴 URSP Acquaintance Party • Sept 17–18, 2026 • URS Pililla Campus
+                  </div>
                 </div>
-                <motion.button
-                  className="btn-bulk-verify w-full"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => copyToClipboard(masterUsherUrl, "Usher Scanner Link")}
+              </div>
+
+              {/* Lock / Unlock Toggle */}
+              <motion.button
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.94 }}
+                onClick={handleToggleRegistrationLock}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  fontWeight: '900',
+                  fontSize: '0.88rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  background: registrationLocked
+                    ? 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)'
+                    : 'linear-gradient(135deg, #16A34A 0%, #22C55E 100%)',
+                  color: '#FFFFFF',
+                  boxShadow: registrationLocked
+                    ? '0 4px 18px rgba(239,68,68,0.45)'
+                    : '0 4px 18px rgba(34,197,94,0.45)'
+                }}
+              >
+                {registrationLocked ? '🔒 Registration LOCKED' : '🔓 Registration OPEN'}
+              </motion.button>
+            </div>
+
+            {/* Carousel Slide Tabs */}
+            <div style={{
+              display: 'flex',
+              gap: '0',
+              borderBottom: '1px solid rgba(255,255,255,0.07)',
+              background: 'rgba(0,0,0,0.25)'
+            }}>
+              {QR_SLIDES.map((slide, idx) => (
+                <button
+                  key={slide.id}
+                  onClick={() => setQrCarouselSlide(idx)}
+                  style={{
+                    flex: 1,
+                    padding: '12px 8px',
+                    background: qrCarouselSlide === idx ? 'rgba(99,102,241,0.2)' : 'transparent',
+                    border: 'none',
+                    borderBottom: qrCarouselSlide === idx ? '3px solid #818CF8' : '3px solid transparent',
+                    color: qrCarouselSlide === idx ? '#A5B4FC' : '#64748B',
+                    fontWeight: qrCarouselSlide === idx ? '800' : '600',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    letterSpacing: '0.4px'
+                  }}
                 >
-                  📋 Copy Master Usher Link
-                </motion.button>
-                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                  <a
-                    href={masterUsherUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn-action btn-undo text-center block w-full mt-1"
-                  >
-                    📱 Open Scanner on this Device
-                  </a>
-                </motion.div>
-              </div>
-            </motion.div>
+                  {slide.label}
+                </button>
+              ))}
+            </div>
 
-            {/* Card 2: Student Registration Broadcast */}
-            <motion.div
-              className="access-hub-card"
-              initial={{ opacity: 0, y: 15 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              whileHover={{ scale: 1.025, y: -4 }}
-              transition={{ type: "spring", stiffness: 350, damping: 22, delay: 0.1 }}
-            >
-              <div className="badge-tag">PUBLIC REGISTRATION PASS</div>
-              <h3 className="mt-3 text-lg font-bold text-white">Student Registration Broadcast Hub</h3>
-              <p className="text-xs text-muted mt-1 mb-2">
-                Public registration link and QR pass for 1,400+ students across the 3 colleges.
-              </p>
-
-              <div className="qr-container-box">
-                <QRCode value={studentRegisterUrl} size={180} level="H" />
-              </div>
-
-              <div className="w-full flex flex-col gap-2 mt-2">
-                <div className="text-xs font-mono text-green bg-[#0D1322] p-2 rounded border border-border-color break-all text-center">
-                  {studentRegisterUrl}
-                </div>
-                <motion.button
-                  className="btn-bulk-verify w-full"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => copyToClipboard(studentRegisterUrl, "Student Registration Link")}
+            {/* Carousel Slide Content */}
+            <AnimatePresence mode="wait">
+              {/* Slide 0: Official Event Registration QR */}
+              {qrCarouselSlide === 0 && (
+                <motion.div
+                  key="official"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.22 }}
+                  style={{ padding: '28px 32px', display: 'flex', gap: '36px', alignItems: 'flex-start', flexWrap: 'wrap' }}
                 >
-                  📋 Copy Public Registration Link
-                </motion.button>
-                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                  <a
-                    href={studentRegisterUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn-action btn-undo text-center block w-full mt-1"
-                  >
-                    📝 Open Student Registration Form
-                  </a>
+                  {/* QR Preview + Lock Overlay */}
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                    <div style={{
+                      background: '#FFFFFF',
+                      borderRadius: '16px',
+                      padding: '16px',
+                      display: 'inline-flex',
+                      boxShadow: registrationLocked ? '0 0 0 4px rgba(239,68,68,0.6)' : '0 0 0 4px rgba(99,102,241,0.4)'
+                    }}>
+                      <QRCode
+                        value={registrationLocked ? 'REGISTRATION_LOCKED_BY_SSG_ADMIN' : studentRegisterUrl}
+                        size={200}
+                        level="H"
+                        fgColor={registrationLocked ? '#6B7280' : '#0F172A'}
+                      />
+                    </div>
+                    {registrationLocked && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          background: 'rgba(0,0,0,0.72)',
+                          borderRadius: '16px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px'
+                        }}
+                      >
+                        <span style={{ fontSize: '3rem' }}>🔒</span>
+                        <span style={{ color: '#FCA5A5', fontWeight: '900', fontSize: '13px', textAlign: 'center' }}>REGISTRATION<br/>LOCKED</span>
+                      </motion.div>
+                    )}
+                  </div>
+
+                  {/* Info & Controls */}
+                  <div style={{ flex: 1, minWidth: '220px' }}>
+                    <div style={{
+                      display: 'inline-block',
+                      padding: '4px 12px',
+                      borderRadius: '8px',
+                      background: registrationLocked ? 'rgba(239,68,68,0.18)' : 'rgba(99,102,241,0.18)',
+                      border: `1px solid ${registrationLocked ? 'rgba(239,68,68,0.4)' : 'rgba(99,102,241,0.4)'}`,
+                      color: registrationLocked ? '#FCA5A5' : '#A5B4FC',
+                      fontSize: '11px',
+                      fontWeight: '800',
+                      letterSpacing: '0.8px',
+                      textTransform: 'uppercase',
+                      marginBottom: '12px'
+                    }}>
+                      {registrationLocked ? '🔒 REGISTRATION CLOSED' : '🟢 REGISTRATION OPEN'}
+                    </div>
+
+                    <h3 style={{ color: '#FFFFFF', fontWeight: '900', fontSize: '1.15rem', margin: '0 0 6px' }}>
+                      Official Event Registration Portal
+                    </h3>
+                    <p style={{ color: '#94A3B8', fontSize: '12px', lineHeight: '1.6', margin: '0 0 16px' }}>
+                      This is the <strong style={{ color: '#FFF' }}>official QR code</strong> for the URSPANTROPIKO 2026
+                      Acquaintance Party general registration. Post this on group chats and
+                      bulletin boards. SSG Admin can <strong style={{ color: registrationLocked ? '#FCA5A5' : '#86EFAC' }}>lock</strong> or
+                      <strong style={{ color: '#86EFAC' }}> unlock</strong> registration anytime.
+                    </p>
+
+                    {/* Event Details Pills */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '18px' }}>
+                      {[
+                        { icon: '📅', text: 'Sept 17–18, 2026' },
+                        { icon: '📍', text: 'URS Pililla Campus' },
+                        { icon: '🎓', text: '3 Official Colleges' },
+                        { icon: '👥', text: '1,400+ Students' }
+                      ].map(pill => (
+                        <span key={pill.text} style={{
+                          padding: '5px 12px',
+                          borderRadius: '20px',
+                          background: 'rgba(255,255,255,0.06)',
+                          border: '1px solid rgba(255,255,255,0.12)',
+                          color: '#CBD5E1',
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px'
+                        }}>
+                          {pill.icon} {pill.text}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {!registrationLocked && (
+                        <motion.button
+                          className="btn-bulk-verify w-full"
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => copyToClipboard(studentRegisterUrl, 'Official Registration Link')}
+                        >
+                          📋 Copy Registration Link
+                        </motion.button>
+                      )}
+                      <motion.button
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={handleToggleRegistrationLock}
+                        style={{
+                          padding: '11px 20px',
+                          borderRadius: '10px',
+                          border: 'none',
+                          fontWeight: '900',
+                          fontSize: '0.88rem',
+                          cursor: 'pointer',
+                          background: registrationLocked
+                            ? 'linear-gradient(135deg, #16A34A, #22C55E)'
+                            : 'linear-gradient(135deg, #DC2626, #EF4444)',
+                          color: '#FFFFFF',
+                          boxShadow: registrationLocked
+                            ? '0 4px 14px rgba(34,197,94,0.4)'
+                            : '0 4px 14px rgba(239,68,68,0.4)'
+                        }}
+                      >
+                        {registrationLocked ? '🔓 Unlock Registration' : '🔒 Lock Registration'}
+                      </motion.button>
+                      {registrationLocked && (
+                        <div style={{
+                          padding: '10px 14px',
+                          background: 'rgba(239,68,68,0.12)',
+                          border: '1px solid rgba(239,68,68,0.3)',
+                          borderRadius: '10px',
+                          color: '#FCA5A5',
+                          fontSize: '11.5px',
+                          lineHeight: '1.5'
+                        }}>
+                          ⚠️ Registration is currently <strong>LOCKED</strong>. Students who scan this QR will see a closed portal message. Unlock when ready to accept new registrations.
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </motion.div>
-              </div>
-            </motion.div>
-          </div>
+              )}
+
+              {/* Slide 1: Master Usher Scanner Pass */}
+              {qrCarouselSlide === 1 && (
+                <motion.div
+                  key="usher"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.22 }}
+                  style={{ padding: '28px 32px', display: 'flex', gap: '36px', alignItems: 'flex-start', flexWrap: 'wrap' }}
+                >
+                  <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '16px', display: 'inline-flex', boxShadow: '0 0 0 4px rgba(245,158,11,0.4)', flexShrink: 0 }}>
+                    <QRCode value={masterUsherUrl} size={200} level="H" />
+                  </div>
+                  <div style={{ flex: 1, minWidth: '220px' }}>
+                    <div className="badge-tag" style={{ marginBottom: '12px' }}>MARSHAL DISPATCH PASS</div>
+                    <h3 style={{ color: '#FFFFFF', fontWeight: '900', fontSize: '1.15rem', margin: '0 0 8px' }}>Single Master Usher Access Pass</h3>
+                    <p style={{ color: '#94A3B8', fontSize: '12px', lineHeight: '1.6', margin: '0 0 16px' }}>
+                      Ushers scan this single QR from your screen with their mobile camera to unlock the gate scanner. Valid for all official ushers and marshals of the event.
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#7DD3FC', background: '#0D1322', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(56,189,248,0.2)', wordBreak: 'break-all' }}>{masterUsherUrl}</div>
+                      <motion.button className="btn-bulk-verify w-full" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => copyToClipboard(masterUsherUrl, 'Usher Scanner Link')}>
+                        📋 Copy Master Usher Link
+                      </motion.button>
+                      <a href={masterUsherUrl} target="_blank" rel="noreferrer" className="btn-action btn-undo text-center block w-full mt-1" style={{ textDecoration: 'none' }}>
+                        📱 Open Scanner on this Device
+                      </a>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Slide 2: Student Public Registration Broadcast */}
+              {qrCarouselSlide === 2 && (
+                <motion.div
+                  key="student"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.22 }}
+                  style={{ padding: '28px 32px', display: 'flex', gap: '36px', alignItems: 'flex-start', flexWrap: 'wrap' }}
+                >
+                  <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '16px', display: 'inline-flex', boxShadow: '0 0 0 4px rgba(16,185,129,0.4)', flexShrink: 0 }}>
+                    <QRCode value={studentRegisterUrl} size={200} level="H" />
+                  </div>
+                  <div style={{ flex: 1, minWidth: '220px' }}>
+                    <div className="badge-tag" style={{ marginBottom: '12px' }}>PUBLIC REGISTRATION PASS</div>
+                    <h3 style={{ color: '#FFFFFF', fontWeight: '900', fontSize: '1.15rem', margin: '0 0 8px' }}>Student Registration Broadcast Hub</h3>
+                    <p style={{ color: '#94A3B8', fontSize: '12px', lineHeight: '1.6', margin: '0 0 16px' }}>
+                      Public registration link and QR pass for 1,400+ students across all 3 collegiate departments of URS Pililla.
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#6EE7B7', background: '#0D1322', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(16,185,129,0.2)', wordBreak: 'break-all' }}>{studentRegisterUrl}</div>
+                      <motion.button className="btn-bulk-verify w-full" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => copyToClipboard(studentRegisterUrl, 'Student Registration Link')}>
+                        📋 Copy Public Registration Link
+                      </motion.button>
+                      <a href={studentRegisterUrl} target="_blank" rel="noreferrer" className="btn-action btn-undo text-center block w-full mt-1" style={{ textDecoration: 'none' }}>
+                        📝 Open Student Registration Form
+                      </a>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Carousel Dot Indicators */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', padding: '12px', borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(0,0,0,0.2)' }}>
+              {QR_SLIDES.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setQrCarouselSlide(idx)}
+                  style={{
+                    width: qrCarouselSlide === idx ? '28px' : '8px',
+                    height: '8px',
+                    borderRadius: '4px',
+                    background: qrCarouselSlide === idx ? '#818CF8' : 'rgba(255,255,255,0.2)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.25s ease'
+                  }}
+                />
+              ))}
+            </div>
+          </motion.div>
+
         </motion.section>
       )}
 

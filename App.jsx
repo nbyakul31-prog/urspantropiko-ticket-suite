@@ -937,7 +937,12 @@ export default function App() {
       {/* Main View Portals */}
       <main className="app-main-standalone">
         {route === 'student' && (
-          <StudentPortal onTicketGenerated={handleTicketGenerated} />
+          <StudentPortal
+            onTicketGenerated={handleTicketGenerated}
+            registrationLocked={(() => {
+              try { return localStorage.getItem('ursp_registration_locked') === 'true'; } catch(e) { return false; }
+            })()}
+          />
         )}
         
         {route === 'admin' && (
