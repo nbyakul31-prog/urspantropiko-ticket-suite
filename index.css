@@ -1743,6 +1743,37 @@ img { max-width: 100%; height: auto; }
   letter-spacing: 0.3px;
 }
 
+/* Masterlist Table Column Grid Borders & Structure */
+.master-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.master-table th {
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 12px 10px;
+}
+
+.master-table th:last-child {
+  border-right: none;
+}
+
+.master-table td {
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 10px 12px;
+}
+
+.master-table td:last-child {
+  border-right: none;
+}
+
+
 
 
 

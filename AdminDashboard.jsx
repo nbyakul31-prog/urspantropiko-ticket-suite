@@ -2078,20 +2078,20 @@ export default function AdminDashboard({
                 </div>
 
                 {/* Spreadsheet Table Preview */}
-                <div style={{ overflowX: 'auto', border: '1px solid #CBD5E1', borderRadius: '6px' }}>
+                <div style={{ overflowX: 'auto', border: '2px solid #0F172A', borderRadius: '6px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem', textAlign: 'left' }}>
                     <thead>
                       <tr style={{ background: '#0F172A', color: '#FFFFFF' }}>
-                        <th style={{ padding: '6px 4px', textAlign: 'center', width: '30px' }}>#</th>
-                        <th style={{ padding: '6px' }}>Ticket Ref</th>
-                        <th style={{ padding: '6px' }}>Student ID</th>
-                        <th style={{ padding: '6px' }}>Student Name</th>
-                        <th style={{ padding: '6px' }}>College Department</th>
-                        <th style={{ padding: '6px', textAlign: 'center' }}>Section</th>
-                        <th style={{ padding: '6px', textAlign: 'center' }}>Year</th>
-                        <th style={{ padding: '6px', textAlign: 'center' }}>Payment</th>
-                        <th style={{ padding: '6px', textAlign: 'center' }}>Day 1 (Sept 17)</th>
-                        <th style={{ padding: '6px', textAlign: 'center' }}>Day 2 (Sept 18)</th>
+                        <th style={{ padding: '7px 4px', textAlign: 'center', width: '32px', border: '1px solid #334155' }}>#</th>
+                        <th style={{ padding: '7px 8px', width: '90px', border: '1px solid #334155' }}>Ticket Ref</th>
+                        <th style={{ padding: '7px 8px', width: '95px', border: '1px solid #334155' }}>Student ID</th>
+                        <th style={{ padding: '7px 10px', minWidth: '150px', border: '1px solid #334155' }}>Student Name</th>
+                        <th style={{ padding: '7px 8px', border: '1px solid #334155' }}>College Department</th>
+                        <th style={{ padding: '7px 8px', textAlign: 'center', width: '100px', border: '1px solid #334155' }}>Section</th>
+                        <th style={{ padding: '7px 6px', textAlign: 'center', width: '70px', border: '1px solid #334155' }}>Year</th>
+                        <th style={{ padding: '7px 8px', textAlign: 'center', width: '100px', border: '1px solid #334155' }}>Payment</th>
+                        <th style={{ padding: '7px 8px', textAlign: 'center', width: '110px', border: '1px solid #334155' }}>Day 1 (Sept 17)</th>
+                        <th style={{ padding: '7px 8px', textAlign: 'center', width: '110px', border: '1px solid #334155' }}>Day 2 (Sept 18)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2108,12 +2108,11 @@ export default function AdminDashboard({
                               <td
                                 colSpan={10}
                                 style={{
-                                  padding: '8px 12px',
+                                  padding: '9px 12px',
                                   fontWeight: '900',
                                   fontSize: '0.82rem',
                                   letterSpacing: '0.5px',
-                                  borderTop: '2px solid #0F172A',
-                                  borderBottom: '2px solid #0F172A',
+                                  border: '1.5px solid #0F172A',
                                   textTransform: 'uppercase'
                                 }}
                               >
@@ -2124,7 +2123,7 @@ export default function AdminDashboard({
                                   </div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.72rem' }}>
                                     <span>👥 {grp.students.length} Enrolled</span>
-                                    <span style={{ background: 'rgba(0,0,0,0.25)', padding: '2px 8px', borderRadius: '4px' }}>
+                                    <span style={{ background: 'rgba(0,0,0,0.25)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)' }}>
                                       💳 {grpPaid} Paid ({grpPaidPct}%)
                                     </span>
                                     <span>🌅 Day 1: {grpDay1}</span>
@@ -2142,73 +2141,77 @@ export default function AdminDashboard({
                               const isDay2 = d.day2_status === 'attended';
 
                               return (
-                                <tr key={d.ticket_code} style={{ background: theme.rowBg, borderBottom: '1px solid #CBD5E1' }}>
-                                  <td style={{ padding: '4px', textAlign: 'center', color: '#64748B', fontWeight: 'bold' }}>
+                                <tr key={d.ticket_code} style={{ background: theme.rowBg }}>
+                                  <td style={{ padding: '5px 4px', textAlign: 'center', color: '#64748B', fontWeight: 'bold', border: '1px solid #CBD5E1' }}>
                                     {studentIdx + 1}
                                   </td>
-                                  <td style={{ padding: '4px 6px', fontWeight: 'bold', fontFamily: 'monospace' }}>
+                                  <td style={{ padding: '5px 8px', fontWeight: 'bold', fontFamily: 'monospace', border: '1px solid #CBD5E1' }}>
                                     {d.ticket_code}
                                   </td>
-                                  <td style={{ padding: '4px 6px', fontFamily: 'monospace' }}>
+                                  <td style={{ padding: '5px 8px', fontFamily: 'monospace', border: '1px solid #CBD5E1' }}>
                                     {d.student_id}
                                   </td>
-                                  <td style={{ padding: '4px 6px', fontWeight: 'bold', color: '#0F172A' }}>
+                                  <td style={{ padding: '5px 10px', fontWeight: 'bold', color: '#0F172A', border: '1px solid #CBD5E1' }}>
                                     {d.full_name}
                                   </td>
-                                  <td style={{ padding: '4px 6px' }}>
+                                  <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
                                     <span style={{
                                       background: theme.badgeBg,
                                       color: theme.badgeText,
-                                      padding: '1px 6px',
+                                      padding: '2px 7px',
                                       borderRadius: '4px',
                                       fontWeight: 'bold',
                                       fontSize: '0.68rem',
-                                      border: `1px solid ${theme.badgeBorder}`
+                                      border: `1px solid ${theme.badgeBorder}`,
+                                      display: 'inline-block'
                                     }}>
                                       {theme.short} • {theme.name}
                                     </span>
                                   </td>
-                                  <td style={{ padding: '4px', textAlign: 'center', fontWeight: 'bold' }}>
+                                  <td style={{ padding: '5px 8px', textAlign: 'center', fontWeight: 'bold', border: '1px solid #CBD5E1' }}>
                                     {d.program_section}
                                   </td>
-                                  <td style={{ padding: '4px', textAlign: 'center' }}>
+                                  <td style={{ padding: '5px 6px', textAlign: 'center', border: '1px solid #CBD5E1' }}>
                                     {d.year_level || '1st Year'}
                                   </td>
-                                  <td style={{ padding: '4px', textAlign: 'center' }}>
+                                  <td style={{ padding: '5px 8px', textAlign: 'center', border: '1px solid #CBD5E1' }}>
                                     <span style={{
                                       background: isPaid ? '#D1FAE5' : '#FEE2E2',
                                       color: isPaid ? '#065F46' : '#991B1B',
-                                      padding: '1px 6px',
+                                      padding: '2px 7px',
                                       borderRadius: '4px',
                                       fontWeight: 'bold',
                                       fontSize: '0.68rem',
-                                      border: isPaid ? '1px solid #A7F3D0' : '1px solid #FECACA'
+                                      border: isPaid ? '1px solid #A7F3D0' : '1px solid #FECACA',
+                                      display: 'inline-block'
                                     }}>
                                       {isPaid ? '💳 PAID' : '⏳ UNPAID'}
                                     </span>
                                   </td>
-                                  <td style={{ padding: '4px', textAlign: 'center' }}>
+                                  <td style={{ padding: '5px 8px', textAlign: 'center', border: '1px solid #CBD5E1' }}>
                                     <span style={{
                                       background: isDay1 ? '#DCFCE7' : '#F1F5F9',
                                       color: isDay1 ? '#15803D' : '#64748B',
-                                      padding: '1px 6px',
+                                      padding: '2px 7px',
                                       borderRadius: '4px',
                                       fontWeight: 'bold',
                                       fontSize: '0.68rem',
-                                      border: isDay1 ? '1px solid #86EFAC' : '1px solid #CBD5E1'
+                                      border: isDay1 ? '1px solid #86EFAC' : '1px solid #CBD5E1',
+                                      display: 'inline-block'
                                     }}>
                                       {isDay1 ? `✅ IN (${d.day1_time || '08:14 AM'})` : '❌ NOT IN'}
                                     </span>
                                   </td>
-                                  <td style={{ padding: '4px', textAlign: 'center' }}>
+                                  <td style={{ padding: '5px 8px', textAlign: 'center', border: '1px solid #CBD5E1' }}>
                                     <span style={{
                                       background: isDay2 ? '#EDE9FE' : '#F1F5F9',
                                       color: isDay2 ? '#5B21B6' : '#64748B',
-                                      padding: '1px 6px',
+                                      padding: '2px 7px',
                                       borderRadius: '4px',
                                       fontWeight: 'bold',
                                       fontSize: '0.68rem',
-                                      border: isDay2 ? '1px solid #DDD6FE' : '1px solid #CBD5E1'
+                                      border: isDay2 ? '1px solid #DDD6FE' : '1px solid #CBD5E1',
+                                      display: 'inline-block'
                                     }}>
                                       {isDay2 ? `✅ IN (${d.day2_time || '08:45 PM'})` : '❌ NOT IN'}
                                     </span>
