@@ -4,6 +4,7 @@ import html2canvas from 'html2canvas';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './lib/supabase';
 import { sanitizeText, sanitizeStudentId } from './lib/security';
+import { broadcastCloudUpdate } from './lib/cloudSync';
 
 const COLLEGES_DATA = [
   {
@@ -110,19 +111,29 @@ export default function StudentPortal({ onTicketGenerated }) {
           .select();
 
         if (sbError) {
-          console.warn('Supabase insert notice (fallback to local state active):', sbError.message);
+          console.warn('Supabase insert notice (fallback to cloud sync active):', sbError.message);
         }
-      } catch (err) {
-        console.warn('Network sync notice:', err);
-      }
+      } catch (err) {}
 
+      // Cross-Device Real-Time Cloud Broadcast
       try {
         const existingData = localStorage.getItem('ursp_masterlist_attendees_v4');
         let currentList = existingData ? JSON.parse(existingData) : [];
-        currentList = [newAttendee, ...currentList];
+        currentList = [newAttendee, ...currentList.filter(t => t.ticket_code !== newAttendee.ticket_code && t.student_id !== newAttendee.student_id)];
         localStorage.setItem('ursp_masterlist_attendees_v4', JSON.stringify(currentList));
+
+        const registrationPing = {
+          type: 'registration',
+          title: '🎉 NEW STUDENT REGISTERED',
+          message: `${newAttendee.full_name} (${newAttendee.program_section}) registered online!`,
+          ticket_code: newAttendee.ticket_code,
+          department: newAttendee.department
+        };
+
+        // Real-Time Push to all connected PC Admins & Devices
+        broadcastCloudUpdate(currentList, registrationPing);
       } catch (e) {
-        console.error('LocalStorage write error:', e);
+        console.error('Cloud broadcast sync notice:', e);
       }
 
       setTicket(newAttendee);
@@ -563,19 +574,20 @@ export default function StudentPortal({ onTicketGenerated }) {
 
         {/* Student Portal Watermark Footer */}
         <div style={{
-          marginTop: '20px',
-          paddingTop: '16px',
+          marginTop: '16px',
+          paddingTop: '12px',
           borderTop: '1px solid rgba(255, 255, 255, 0.1)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '12px'
+          gap: '8px',
+          flexWrap: 'nowrap'
         }}>
-          <div>
-            <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#FEF08A' }}>
-              ⚡ Powered by SSG • URS Pililla Campus
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: '#FEF08A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              ⚡ Powered by SSG &bull; URS Pililla
             </div>
-            <div style={{ fontSize: '0.68rem', color: '#94A3B8', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
               <span>Designed by</span>
               <a 
                 href="https://instagram.com/noir_et_blancc66" 
@@ -586,15 +598,16 @@ export default function StudentPortal({ onTicketGenerated }) {
                   fontWeight: '700', 
                   textDecoration: 'none',
                   background: 'linear-gradient(135deg, rgba(225, 48, 108, 0.25), rgba(131, 58, 180, 0.25))',
-                  padding: '2px 7px',
-                  borderRadius: '6px',
+                  padding: '1px 6px',
+                  borderRadius: '4px',
                   border: '1px solid rgba(225, 48, 108, 0.35)',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '4px'
+                  gap: '3px',
+                  fontSize: '10px'
                 }}
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
                   <rect x="2" y="2" width="20" height="20" rx="5" stroke="url(#ig-grad-portal)" strokeWidth="2.2" />
                   <circle cx="12" cy="12" r="4.5" stroke="url(#ig-grad-portal)" strokeWidth="2.2" />
                   <circle cx="17.5" cy="6.5" r="1.2" fill="url(#ig-grad-portal)" />
@@ -613,13 +626,13 @@ export default function StudentPortal({ onTicketGenerated }) {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
             <img
               src="/logo.png"
               alt="URSP SSG Seal"
               style={{
-                width: '32px',
-                height: '32px',
+                width: '28px',
+                height: '28px',
                 borderRadius: '50%',
                 border: '1.5px solid #FFD100',
                 background: '#FFF',
@@ -630,8 +643,8 @@ export default function StudentPortal({ onTicketGenerated }) {
               src="/urs_logo.png"
               alt="URS Main Seal"
               style={{
-                width: '32px',
-                height: '32px',
+                width: '28px',
+                height: '28px',
                 borderRadius: '50%',
                 border: '1.5px solid #38BDF8',
                 background: '#FFF',

@@ -5,6 +5,7 @@ import UsherScanner from './UsherScanner';
 import BackgroundAmbient from './BackgroundAmbient';
 import { supabase } from './lib/supabase';
 import { checkPinRateLimit, recordFailedPinAttempt, resetPinAttempts, sanitizeText } from './lib/security';
+import { broadcastCloudUpdate, listenToCloudUpdates } from './lib/cloudSync';
 
 const STORAGE_KEY = 'ursp_masterlist_attendees_v4';
 
@@ -247,21 +248,26 @@ export default function App() {
       }
     } catch (err) {}
 
-    // 3. Local Broadcast Channel for cross-tab sync
-    let broadcastChannel = null;
-    try {
-      if (typeof BroadcastChannel !== 'undefined') {
-        broadcastChannel = new BroadcastChannel('ursp_live_sync_channel');
-        broadcastChannel.onmessage = (event) => {
-          if (event.data?.type === 'SYNC_TICKETS' && Array.isArray(event.data.tickets)) {
-            setTickets(event.data.tickets.map(normalizeTicket));
-          }
-          if (event.data?.type === 'LIVE_PING' && event.data.ping) {
-            addLivePing(event.data.ping);
-          }
-        };
+    // 3. Real-Time Cloud Listener for Cross-Device Sync (Phone <-> PC Admin)
+    const cleanupCloudSync = listenToCloudUpdates((cloudTickets, ping) => {
+      if (Array.isArray(cloudTickets) && cloudTickets.length > 0 && isMounted) {
+        setTickets(prev => {
+          const map = new Map();
+          cloudTickets.forEach(t => map.set(t.ticket_code, normalizeTicket(t)));
+          prev.forEach(t => {
+            if (!map.has(t.ticket_code)) {
+              map.set(t.ticket_code, t);
+            }
+          });
+          const merged = Array.from(map.values());
+          saveStoredTickets(merged);
+          return merged;
+        });
       }
-    } catch (e) {}
+      if (ping && isMounted) {
+        addLivePing(ping);
+      }
+    });
 
     const handleStorage = (e) => {
       if (e.key === STORAGE_KEY && e.newValue) {
@@ -279,7 +285,7 @@ export default function App() {
     return () => {
       isMounted = false;
       window.removeEventListener('storage', handleStorage);
-      if (broadcastChannel) broadcastChannel.close();
+      cleanupCloudSync();
       if (channel && supabase && typeof supabase.removeChannel === 'function') {
         supabase.removeChannel(channel);
       }
@@ -288,17 +294,7 @@ export default function App() {
 
   const broadcastUpdate = (newTicketsList, ping = null) => {
     saveStoredTickets(newTicketsList);
-    try {
-      if (typeof BroadcastChannel !== 'undefined') {
-        const ch = new BroadcastChannel('ursp_live_sync_channel');
-        ch.postMessage({
-          type: 'SYNC_TICKETS',
-          tickets: newTicketsList,
-          ping
-        });
-        ch.close();
-      }
-    } catch (e) {}
+    broadcastCloudUpdate(newTicketsList, ping);
     if (ping) {
       addLivePing(ping);
     }
