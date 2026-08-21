@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import StudentPortal from './StudentPortal';
 import AdminDashboard from './AdminDashboard';
 import UsherScanner from './UsherScanner';
@@ -95,6 +96,12 @@ export default function App() {
   const [livePings, setLivePings] = useState([]);
   const [highlightedCode, setHighlightedCode] = useState(null);
 
+  // Live Toast Notification System (5-second auto-dismiss with rate-limiter)
+  const [activeToasts, setActiveToasts] = useState([]);
+  const lastToastTimeRef = useRef(0);
+  const pendingRegistrationsCountRef = useRef(0);
+  const rateLimitTimerRef = useRef(null);
+
   // Initial Route Security Check (Intercept direct ?view=admin links)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -156,6 +163,18 @@ export default function App() {
     }
   };
 
+  const triggerToast = (toastObj) => {
+    setActiveToasts(prev => [toastObj, ...prev.slice(0, 2)]);
+    // 5-second automatic timer
+    setTimeout(() => {
+      setActiveToasts(prev => prev.filter(t => t.id !== toastObj.id));
+    }, 5000);
+  };
+
+  const removeToast = (id) => {
+    setActiveToasts(prev => prev.filter(t => t.id !== id));
+  };
+
   const addLivePing = (ping) => {
     const enriched = {
       id: 'PING-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
@@ -169,6 +188,36 @@ export default function App() {
         setHighlightedCode(curr => (curr === ping.ticket_code ? null : curr));
       }, 5000);
     }
+
+    // Rate Limiter: Instill 2-second rate limit on registration toasts to prevent popup spam
+    const now = Date.now();
+    if (ping.type === 'registration') {
+      const timeSinceLast = now - lastToastTimeRef.current;
+      if (timeSinceLast < 2000) {
+        pendingRegistrationsCountRef.current += 1;
+        if (!rateLimitTimerRef.current) {
+          rateLimitTimerRef.current = setTimeout(() => {
+            const count = pendingRegistrationsCountRef.current;
+            pendingRegistrationsCountRef.current = 0;
+            rateLimitTimerRef.current = null;
+            if (count > 0) {
+              const aggregatedPing = {
+                id: 'PING-AGG-' + Date.now(),
+                timestamp: getPHTimeString(),
+                type: 'registration',
+                title: '⚡ BATCH REGISTRATIONS',
+                message: `✨ ${count} more student${count > 1 ? 's' : ''} just registered online!`
+              };
+              triggerToast(aggregatedPing);
+            }
+          }, 2200);
+        }
+        return;
+      }
+      lastToastTimeRef.current = now;
+    }
+
+    triggerToast(enriched);
   };
 
   // Setup Cross-Tab Broadcast Channel, LocalStorage & Supabase Real-Time Sync
@@ -570,6 +619,45 @@ export default function App() {
   return (
     <div className="app-layout">
       <BackgroundAmbient />
+
+      {/* Floating Real-Time Live Toast Notifications (5-Second Expiry & Rate-Limited) */}
+      <div className="global-toast-container">
+        <AnimatePresence>
+          {activeToasts.map(toast => (
+            <motion.div
+              key={toast.id}
+              className={`toast-card toast-${toast.type || 'registration'}`}
+              initial={{ opacity: 0, y: -20, scale: 0.92, x: 20 }}
+              animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
+              exit={{ opacity: 0, scale: 0.88, y: -15, transition: { duration: 0.25 } }}
+              transition={{ type: "spring", stiffness: 380, damping: 25 }}
+            >
+              <div className="toast-header">
+                <span className="toast-title-badge">
+                  {toast.type === 'registration' ? '🎉' : toast.type === 'payment' ? '💳' : toast.type === 'admission' ? '⚡' : toast.type === 'deletion' ? '🗑️' : '✨'} {toast.title || 'NOTIFICATION'}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span className="toast-time">{toast.timestamp}</span>
+                  <button
+                    className="toast-close-btn"
+                    onClick={() => removeToast(toast.id)}
+                    title="Dismiss notification"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              <div className="toast-msg">
+                {toast.message}
+              </div>
+
+              {/* 5-Second Animated Countdown Progress Bar */}
+              <div className="toast-progress-bar" />
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
 
       {/* Role-Based Dynamic Navigation Header */}
       <header className="global-app-nav">

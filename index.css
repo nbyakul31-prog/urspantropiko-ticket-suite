@@ -1850,6 +1850,128 @@ img { max-width: 100%; height: auto; }
   transition: transform 0.2s ease;
 }
 
+/* ========================================================
+   GLOBAL TOAST NOTIFICATIONS & 5-SECOND PROGRESS TIMERS
+   ======================================================== */
+.global-toast-container {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 380px;
+  width: calc(100% - 48px);
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .global-toast-container {
+    top: 12px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-width: 100%;
+  }
+}
+
+.toast-card {
+  pointer-events: auto;
+  position: relative;
+  overflow: hidden;
+  background: rgba(10, 15, 30, 0.94);
+  backdrop-filter: blur(24px) saturate(190%);
+  border-radius: 14px;
+  padding: 12px 14px 14px 14px;
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.8), 0 0 25px rgba(255, 209, 0, 0.25);
+  border: 1.5px solid rgba(255, 209, 0, 0.4);
+  color: #FFFFFF;
+  transition: transform 0.2s ease;
+}
+
+.toast-card.toast-registration {
+  border-color: rgba(16, 185, 129, 0.6);
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.8), 0 0 25px rgba(16, 185, 129, 0.35);
+}
+
+.toast-card.toast-payment {
+  border-color: rgba(255, 209, 0, 0.6);
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.8), 0 0 25px rgba(255, 209, 0, 0.35);
+}
+
+.toast-card.toast-admission {
+  border-color: rgba(56, 189, 248, 0.6);
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.8), 0 0 25px rgba(56, 189, 248, 0.35);
+}
+
+.toast-card.toast-deletion {
+  border-color: rgba(239, 68, 68, 0.6);
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.8), 0 0 25px rgba(239, 68, 68, 0.35);
+}
+
+.toast-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.toast-title-badge {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toast-time {
+  font-size: 10px;
+  color: #94A3B8;
+  font-family: monospace;
+}
+
+.toast-close-btn {
+  background: transparent;
+  border: none;
+  color: #94A3B8;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.toast-close-btn:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.toast-msg {
+  font-size: 12px;
+  color: #E2E8F0;
+  line-height: 1.35;
+  margin-top: 2px;
+}
+
+.toast-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3.5px;
+  background: linear-gradient(90deg, #FF6B35, #FFD100);
+  border-radius: 0 2px 2px 0;
+  animation: toastCountdown 5s linear forwards;
+}
+
+@keyframes toastCountdown {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
 
 
 
