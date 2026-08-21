@@ -379,13 +379,26 @@ export default function App() {
     const cleanupCloudSync = listenToCloudUpdates((cloudTickets, ping) => {
       const deletedSet = getDeletedCodes();
       if (Array.isArray(cloudTickets) && isMounted) {
-        const filteredCloud = cloudTickets.filter(t => !deletedSet.has(t.ticket_code)).map(normalizeTicket);
-        saveStoredTickets(filteredCloud);
         setTickets(prev => {
+          const map = new Map();
+          // 1. Add cloud tickets (ignoring deleted attendees)
+          cloudTickets.filter(t => !deletedSet.has(t.ticket_code)).forEach(t => {
+            map.set(t.ticket_code, normalizeTicket(t));
+          });
+          // 2. Preserve any local attendees not marked as deleted
+          prev.filter(t => !deletedSet.has(t.ticket_code)).forEach(t => {
+            if (!map.has(t.ticket_code)) {
+              map.set(t.ticket_code, t);
+            }
+          });
+
+          const merged = Array.from(map.values());
+          saveStoredTickets(merged);
+
           const prevHash = prev.map(t => `${t.ticket_code}:${t.payment_status}:${t.day1_status}:${t.day2_status}`).join('|');
-          const nextHash = filteredCloud.map(t => `${t.ticket_code}:${t.payment_status}:${t.day1_status}:${t.day2_status}`).join('|');
+          const nextHash = merged.map(t => `${t.ticket_code}:${t.payment_status}:${t.day1_status}:${t.day2_status}`).join('|');
           if (prevHash === nextHash) return prev;
-          return filteredCloud;
+          return merged;
         });
       }
       if (ping && isMounted) {
