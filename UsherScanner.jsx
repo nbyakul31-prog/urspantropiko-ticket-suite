@@ -63,9 +63,12 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
   useEffect(() => {
     const loadCached = () => {
       try {
-        const cached = localStorage.getItem('cachedEventTickets');
+        const cached = localStorage.getItem('ursp_masterlist_attendees_v4') || localStorage.getItem('cachedEventTickets');
         if (cached) {
-          setCachedTickets(JSON.parse(cached));
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setCachedTickets(parsed);
+          }
         }
       } catch (err) {
         console.error('Failed to load cached tickets:', err);
@@ -76,15 +79,13 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
 
   // Save tickets to localStorage when we are online and tickets update
   useEffect(() => {
-    if (isOnline && tickets.length > 0) {
+    if (tickets && tickets.length > 0) {
+      setCachedTickets(tickets);
       try {
-        localStorage.setItem('cachedEventTickets', JSON.stringify(tickets));
-        setCachedTickets(tickets);
-      } catch (err) {
-        console.error('Failed to cache tickets:', err);
-      }
+        localStorage.setItem('ursp_masterlist_attendees_v4', JSON.stringify(tickets));
+      } catch (err) {}
     }
-  }, [isOnline, tickets]);
+  }, [tickets]);
 
   // Audio Beep Synthesis
   const playTone = (freq, duration) => {
@@ -111,20 +112,69 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
     }
   };
 
+  // Resilient Multi-Pattern Ticket Finder (matches exact, TKT- prefix, School ID, URL, or raw digits)
+  const findStudentInDatabase = (rawCode, list) => {
+    if (!rawCode || !Array.isArray(list) || list.length === 0) return null;
+    const trimmed = String(rawCode).trim();
+    const upper = trimmed.toUpperCase();
+
+    // 1. Direct match on ticket_code
+    let match = list.find(t => t.ticket_code?.toUpperCase() === upper);
+    if (match) return match;
+
+    // 2. Direct match on student_id
+    match = list.find(t => t.student_id?.trim().toUpperCase() === upper);
+    if (match) return match;
+
+    // 3. Extract TKT-XXXXX pattern from URL or string
+    const tktExtract = upper.match(/TKT-?[0-9]+/i);
+    if (tktExtract) {
+      const cleanExtracted = tktExtract[0].replace(/^TKT-?/i, 'TKT-');
+      match = list.find(t => t.ticket_code?.toUpperCase() === cleanExtracted);
+      if (match) return match;
+    }
+
+    // 4. Digits-only match (e.g. typing '73902' finds 'TKT-73902')
+    const digitsOnly = trimmed.replace(/\D/g, '');
+    if (digitsOnly.length >= 4) {
+      match = list.find(t => {
+        const tktDigits = (t.ticket_code || '').replace(/\D/g, '');
+        const idDigits = (t.student_id || '').replace(/\D/g, '');
+        return (tktDigits && tktDigits === digitsOnly) || (idDigits && idDigits === digitsOnly);
+      });
+      if (match) return match;
+    }
+
+    // 5. Case-insensitive substring match
+    match = list.find(t =>
+      (t.ticket_code && t.ticket_code.toLowerCase().includes(trimmed.toLowerCase())) ||
+      (t.student_id && t.student_id.toLowerCase().includes(trimmed.toLowerCase())) ||
+      (t.full_name && t.full_name.toLowerCase().includes(trimmed.toLowerCase()))
+    );
+    return match || null;
+  };
+
   const handleScan = (code) => {
     if (!code) return;
-    const cleanCode = code.trim().toUpperCase();
+    const cleanCode = String(code).trim().toUpperCase();
     setScannedCode(cleanCode);
 
-    const ticketsToValidate = isOnline ? tickets : cachedTickets;
-    const student = ticketsToValidate.find(t => t.ticket_code?.toUpperCase() === cleanCode);
+    // Merge active props with local storage fallback for 100% database availability
+    let localFallback = [];
+    try {
+      const raw = localStorage.getItem('ursp_masterlist_attendees_v4');
+      if (raw) localFallback = JSON.parse(raw);
+    } catch (e) {}
+
+    const ticketsToValidate = (tickets && tickets.length > 0) ? tickets : (cachedTickets.length > 0 ? cachedTickets : localFallback);
+    const student = findStudentInDatabase(cleanCode, ticketsToValidate);
 
     if (!student) {
       playTone(180, 0.3);
       setCurrentResult({
         type: 'danger',
         title: '🔴 INVALID TICKET',
-        msg: `Code "${cleanCode}" was not found in the attendee database.`
+        msg: `Code "${cleanCode}" was not found in the attendee database (${ticketsToValidate.length} records checked).`
       });
       return;
     }
@@ -149,7 +199,7 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
         type: 'danger',
         title: '🔴 PAYMENT UNVERIFIED',
         student,
-        msg: 'Payment has not been validated by Class President. Direct attendee to Help Desk.'
+        msg: 'Payment has not been validated by Class President/Treasurer. Direct attendee to SSG Help Desk for payment verification.'
       });
       return;
     }
