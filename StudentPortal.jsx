@@ -124,8 +124,8 @@ export default function StudentPortal({ onTicketGenerated }) {
 
         const registrationPing = {
           type: 'registration',
-          title: '🎉 NEW STUDENT REGISTERED',
-          message: `${newAttendee.full_name} (${newAttendee.program_section}) registered online!`,
+          title: '🎉 STUDENT REGISTERED',
+          message: `${newAttendee.full_name} (${newAttendee.student_id} • ${newAttendee.ticket_code}) was registered to the masterlist.`,
           ticket_code: newAttendee.ticket_code,
           department: newAttendee.department
         };

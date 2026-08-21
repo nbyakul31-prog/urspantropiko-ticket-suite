@@ -245,9 +245,9 @@ export default function App() {
       const regToast = {
         id: 'REG-LIVE',
         type: 'registration',
-        title: count === 1 ? '🎉 NEW REGISTRATION' : `⚡ INCOMING REGISTRATIONS (${count})`,
+        title: count === 1 ? (ping.title || '🎉 STUDENT REGISTERED') : `⚡ INCOMING REGISTRATIONS (${count})`,
         message: count === 1
-          ? '✨ 1 new student registered online (Masterlist updated)'
+          ? (ping.message || 'A new student was registered to the masterlist.')
           : `✨ ${count} students registered online (+3s added • Masterlist updated)`,
         timestamp: getPHTimeString(),
         count
@@ -419,8 +419,8 @@ export default function App() {
 
       const ping = {
         type: 'registration',
-        title: existing ? '🔄 PASS RE-ACCESSED' : '🎉 NEW STUDENT REGISTERED',
-        message: `${record.full_name} (${record.program_section}) ${existing ? 're-accessed existing ticket pass' : 'registered under ' + record.department}!`,
+        title: existing ? '🔄 PASS RE-ACCESSED' : '🎉 STUDENT REGISTERED',
+        message: `${record.full_name} (${record.student_id} • ${record.ticket_code}) was registered to the masterlist.`,
         ticket_code: record.ticket_code,
         department: record.department
       };
