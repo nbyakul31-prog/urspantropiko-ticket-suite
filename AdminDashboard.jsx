@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import QRCode from 'qrcode.react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -148,6 +148,19 @@ export default function AdminDashboard({
   const [sortBy, setSortBy] = useState('recent'); // 'recent' | 'alpha_asc' | 'alpha_desc' | 'oldest' | 'paid_first' | 'day1_first' | 'day2_first'
   const [groupByCollege, setGroupByCollege] = useState(true); // Collegiate Department divider grouping
   const [activeTab, setActiveTab] = useState('masterlist'); // 'masterlist' | 'analytics' | 'access'
+
+  // Ref to scroll to when switching tabs (past the sticky SITREP summary cards)
+  const contentAnchorRef = useRef(null);
+
+  const handleTabSwitch = (tab) => {
+    setActiveTab(tab);
+    // Small delay to allow React to render/mount the new tab section before scrolling
+    setTimeout(() => {
+      if (contentAnchorRef.current) {
+        contentAnchorRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 60);
+  };
 
   // Set of ticket codes already marked as read/viewed by officer
   const [readTickets, setReadTickets] = useState(() => {
@@ -818,19 +831,19 @@ export default function AdminDashboard({
           <div className="tab-pill-group">
             <button
               className={`tab-pill-btn ${activeTab === 'masterlist' ? 'active' : ''}`}
-              onClick={() => setActiveTab('masterlist')}
+              onClick={() => handleTabSwitch('masterlist')}
             >
               📋 Masterlist &amp; Ledger
             </button>
             <button
               className={`tab-pill-btn ${activeTab === 'analytics' ? 'active' : ''}`}
-              onClick={() => setActiveTab('analytics')}
+              onClick={() => handleTabSwitch('analytics')}
             >
               📊 Graphical Analytics
             </button>
             <button
               className={`tab-pill-btn ${activeTab === 'access' ? 'active' : ''}`}
-              onClick={() => setActiveTab('access')}
+              onClick={() => handleTabSwitch('access')}
             >
               🛡️ Access Hub &amp; QRs
             </button>
@@ -1074,6 +1087,7 @@ export default function AdminDashboard({
       {/* TAB 1: MASTERLIST & LEDGER RECONCILIATION */}
       {activeTab === 'masterlist' && (
         <motion.section
+          ref={contentAnchorRef}
           className="panel-box"
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1723,6 +1737,7 @@ export default function AdminDashboard({
       {/* TAB 2: GRAPHICAL ANALYTICS & 3 COLLEGES INFOGRAPHICS */}
       {activeTab === 'analytics' && (
         <motion.section
+          ref={contentAnchorRef}
           className="analytics-layout"
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1896,6 +1911,7 @@ export default function AdminDashboard({
       {/* TAB 3: ACCESS CONTROL & USHER MANAGEMENT — QR Carousel + Cards */}
       {activeTab === 'access' && (
         <motion.section
+          ref={contentAnchorRef}
           style={{ maxWidth: '1100px', margin: '0 auto' }}
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
