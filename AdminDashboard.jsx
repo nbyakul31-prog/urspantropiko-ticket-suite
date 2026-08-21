@@ -1462,27 +1462,30 @@ export default function AdminDashboard({
                                 </button>
                               </td>
 
-                              {/* Actions: Verify/Undo + Remove Row Button */}
-                              <td style={{ textAlign: 'right' }}>
-                                <div className="flex items-center justify-end gap-2">
+                              {/* Actions: Verify/Undo + Animated Remove Row Button */}
+                              <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>
                                   <motion.button
                                     className={`btn-action ${item.payment_status === 'paid' ? 'btn-undo' : 'btn-verify'}`}
-                                    whileHover={{ scale: 1.04 }}
+                                    whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={() => onTogglePayment(item.ticket_code)}
                                     title={item.payment_status === 'paid' ? 'Revert to unpaid' : 'Mark as paid'}
+                                    style={{ minWidth: '76px' }}
                                   >
                                     {item.payment_status === 'paid' ? 'Undo' : 'Verify'}
                                   </motion.button>
 
                                   <motion.button
-                                    className="btn-action-delete"
-                                    whileHover={{ scale: 1.08 }}
-                                    whileTap={{ scale: 0.92 }}
+                                    className="btn-action-delete animated-trash-btn"
+                                    whileHover={{ scale: 1.18, rotate: [0, -10, 10, -5, 5, 0], transition: { duration: 0.35 } }}
+                                    whileTap={{ scale: 0.88 }}
                                     onClick={() => setAttendeeToDelete(item)}
                                     title="Remove student from masterlist (Delete duplicate)"
                                   >
-                                    🗑️
+                                    <motion.span whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 400 }}>
+                                      🗑️
+                                    </motion.span>
                                   </motion.button>
                                 </div>
                               </td>
@@ -1604,27 +1607,30 @@ export default function AdminDashboard({
                           </button>
                         </td>
 
-                        {/* Actions: Verify/Undo + Remove Row Button */}
-                        <td style={{ textAlign: 'right' }}>
-                          <div className="flex items-center justify-end gap-2">
+                        {/* Actions: Verify/Undo + Animated Remove Row Button */}
+                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>
                             <motion.button
                               className={`btn-action ${item.payment_status === 'paid' ? 'btn-undo' : 'btn-verify'}`}
-                              whileHover={{ scale: 1.04 }}
+                              whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
                               onClick={() => onTogglePayment(item.ticket_code)}
                               title={item.payment_status === 'paid' ? 'Revert to unpaid' : 'Mark as paid'}
+                              style={{ minWidth: '76px' }}
                             >
                               {item.payment_status === 'paid' ? 'Undo' : 'Verify'}
                             </motion.button>
 
                             <motion.button
-                              className="btn-action-delete"
-                              whileHover={{ scale: 1.08 }}
-                              whileTap={{ scale: 0.92 }}
+                              className="btn-action-delete animated-trash-btn"
+                              whileHover={{ scale: 1.18, rotate: [0, -10, 10, -5, 5, 0], transition: { duration: 0.35 } }}
+                              whileTap={{ scale: 0.88 }}
                               onClick={() => setAttendeeToDelete(item)}
                               title="Remove student from masterlist (Delete duplicate)"
                             >
-                              🗑️
+                              <motion.span whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 400 }}>
+                                🗑️
+                              </motion.span>
                             </motion.button>
                           </div>
                         </td>
