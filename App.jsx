@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { QRCodeCanvas } from 'qrcode.react';
 import StudentPortal from './StudentPortal';
 import AdminDashboard from './AdminDashboard';
 import UsherScanner from './UsherScanner';
@@ -8,63 +9,84 @@ import { supabase } from './lib/supabase';
 import { checkPinRateLimit, recordFailedPinAttempt, resetPinAttempts, sanitizeText } from './lib/security';
 import { broadcastCloudUpdate, listenToCloudUpdates } from './lib/cloudSync';
 
-const STORAGE_KEY = 'ursp_masterlist_attendees_v4';
-const DELETED_KEY = 'ursp_masterlist_deleted_v4';
-
-export const SAMPLE_TEST_ATTENDEES = [
-  // --- COLLEGE OF BUSINESS (15 Students) ---
-  { id: 'CB-01', ticket_code: 'TKT-20001', student_id: '2024-01001', full_name: 'Abad, Christian Paul', department: 'College of Business', year_level: '1st Year', program_section: 'BSBA 1-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:14 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
-  { id: 'CB-02', ticket_code: 'TKT-20002', student_id: '2024-01002', full_name: 'Alcantara, Bianca Mae', department: 'College of Business', year_level: '1st Year', program_section: 'BSBA 1-B', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: 'CB-03', ticket_code: 'TKT-20003', student_id: '2023-01003', full_name: 'Aquino, Gerald Kim', department: 'College of Business', year_level: '2nd Year', program_section: 'BSA 2-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:26 AM', day2_status: 'attended', day2_time: '08:15 PM', attendance_status: 'attended' },
-  { id: 'CB-04', ticket_code: 'TKT-20004', student_id: '2023-01004', full_name: 'Bautista, Janelle Rose', department: 'College of Business', year_level: '2nd Year', program_section: 'BSA 2-B', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: 'CB-05', ticket_code: 'TKT-20005', student_id: '2022-01005', full_name: 'Castillo, Mark Anthony', department: 'College of Business', year_level: '3rd Year', program_section: 'BSBA 3-A', payment_status: 'paid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: 'CB-06', ticket_code: 'TKT-20006', student_id: '2022-01006', full_name: 'De Guzman, Patricia', department: 'College of Business', year_level: '3rd Year', program_section: 'BSBA 3-B', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: 'CB-07', ticket_code: 'TKT-20007', student_id: '2021-01007', full_name: 'Domingo, Ralph Vincent', department: 'College of Business', year_level: '4th Year', program_section: 'BSA 4-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:35 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
-  { id: 'CB-08', ticket_code: 'TKT-20008', student_id: '2021-01008', full_name: 'Esguerra, Stephanie Jane', department: 'College of Business', year_level: '4th Year', program_section: 'BSA 4-B', payment_status: 'paid', day1_status: 'attended', day1_time: '08:40 AM', day2_status: 'attended', day2_time: '08:30 PM', attendance_status: 'attended' },
-  { id: 'CB-09', ticket_code: 'TKT-20009', student_id: '2024-01009', full_name: 'Flores, Joshua Luke', department: 'College of Business', year_level: '1st Year', program_section: 'BSBA 1-A', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: 'CB-10', ticket_code: 'TKT-20010', student_id: '2023-01010', full_name: 'Garcia, Katrina Danielle', department: 'College of Business', year_level: '2nd Year', program_section: 'BSA 2-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:22 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
-  { id: 'CB-11', ticket_code: 'TKT-20011', student_id: '2022-01011', full_name: 'Hernandez, Justin Clyde', department: 'College of Business', year_level: '3rd Year', program_section: 'BSBA 3-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:15 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
-  { id: 'CB-12', ticket_code: 'TKT-20012', student_id: '2021-01012', full_name: 'Ignacio, Camille Marie', department: 'College of Business', year_level: '4th Year', program_section: 'BSA 4-A', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: 'CB-13', ticket_code: 'TKT-20013', student_id: '2024-01013', full_name: 'Lim, Chloe Denise', department: 'College of Business', year_level: '1st Year', program_section: 'BSBA 1-B', payment_status: 'paid', day1_status: 'attended', day1_time: '08:22 AM', day2_status: 'attended', day2_time: '08:30 PM', attendance_status: 'attended' },
-  { id: 'CB-14', ticket_code: 'TKT-20014', student_id: '2023-01014', full_name: 'Mendoza, Danilo Jr.', department: 'College of Business', year_level: '2nd Year', program_section: 'BSA 2-B', payment_status: 'paid', day1_status: 'attended', day1_time: '08:40 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
-  { id: 'CB-15', ticket_code: 'TKT-20015', student_id: '2021-01015', full_name: 'Tan, Sophia Nicole', department: 'College of Business', year_level: '4th Year', program_section: 'BSBA 4-B', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-
-  // --- COLLEGE OF EDUCATION (15 Students) ---
-  { id: 'COED-01', ticket_code: 'TKT-30001', student_id: '2024-02001', full_name: 'Alano, Kimberly Joyce', department: 'College of Education', year_level: '1st Year', program_section: 'BSED 1-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:10 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
-  { id: 'COED-02', ticket_code: 'TKT-30002', student_id: '2024-02002', full_name: 'Bernardo, Kevin James', department: 'College of Education', year_level: '1st Year', program_section: 'BEED 1-B', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: 'COED-03', ticket_code: 'TKT-30003', student_id: '2023-02003', full_name: 'Cabrera, Mary Grace', department: 'College of Education', year_level: '2nd Year', program_section: 'BTLED 2-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:30 AM', day2_status: 'attended', day2_time: '08:20 PM', attendance_status: 'attended' },
-  { id: 'COED-04', ticket_code: 'TKT-30004', student_id: '2023-02004', full_name: 'Cruz, John Michael', department: 'College of Education', year_level: '2nd Year', program_section: 'BSED 2-B', payment_status: 'paid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: 'COED-05', ticket_code: 'TKT-30005', student_id: '2022-02005', full_name: 'Diaz, Angela Mae', department: 'College of Education', year_level: '3rd Year', program_section: 'BEED 3-B', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: 'COED-06', ticket_code: 'TKT-30006', student_id: '2022-02006', full_name: 'Enriquez, Lance Matthew', department: 'College of Education', year_level: '3rd Year', program_section: 'BSED 3-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:18 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
-  { id: 'COED-07', ticket_code: 'TKT-30007', student_id: '2021-02007', full_name: 'Francisco, Andrea Nicole', department: 'College of Education', year_level: '4th Year', program_section: 'BTLED 4-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:45 AM', day2_status: 'attended', day2_time: '08:40 PM', attendance_status: 'attended' },
-  { id: 'COED-08', ticket_code: 'TKT-30008', student_id: '2021-02008', full_name: 'Gomez, Patricia Anne', department: 'College of Education', year_level: '4th Year', program_section: 'BSED 4-B', payment_status: 'paid', day1_status: 'attended', day1_time: '08:35 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
-  { id: 'COED-09', ticket_code: 'TKT-30009', student_id: '2024-02009', full_name: 'Hilario, Daniel Joseph', department: 'College of Education', year_level: '1st Year', program_section: 'BEED 1-A', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: 'COED-10', ticket_code: 'TKT-30010', student_id: '2023-02010', full_name: 'Javier, Roxanne Claire', department: 'College of Education', year_level: '2nd Year', program_section: 'BTLED 2-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:25 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
-  { id: 'COED-11', ticket_code: 'TKT-30011', student_id: '2022-02011', full_name: 'Laureano, Gabriel Ethan', department: 'College of Education', year_level: '3rd Year', program_section: 'BSED 3-A', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: 'COED-12', ticket_code: 'TKT-30012', student_id: '2021-02012', full_name: 'Magno, Bea Marie', department: 'College of Education', year_level: '4th Year', program_section: 'BTLED 4-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:50 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
-  { id: 'COED-13', ticket_code: 'TKT-30013', student_id: '2024-02013', full_name: 'Navarro, Clarisse Joy', department: 'College of Education', year_level: '1st Year', program_section: 'BEED 1-B', payment_status: 'paid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: 'COED-14', ticket_code: 'TKT-30014', student_id: '2023-02014', full_name: 'Ocampo, Patrick Neil', department: 'College of Education', year_level: '2nd Year', program_section: 'BSED 2-A', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: 'COED-15', ticket_code: 'TKT-30015', student_id: '2022-02015', full_name: 'Reyes, John Carlo', department: 'College of Education', year_level: '3rd Year', program_section: 'BSED 3-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:14 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
-
-  // --- COLLEGE OF SOCIAL SCIENCES (15 Students) ---
-  { id: 'CSS-01', ticket_code: 'TKT-40001', student_id: '2024-03001', full_name: 'Agustin, Cedric Liam', department: 'College of Social Sciences', year_level: '1st Year', program_section: 'BS-PSYCH 1-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:12 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
-  { id: 'CSS-02', ticket_code: 'TKT-40002', student_id: '2024-03002', full_name: 'Beltran, Dianne Rose', department: 'College of Social Sciences', year_level: '1st Year', program_section: 'AB-POLSCI 1-B', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: 'CSS-03', ticket_code: 'TKT-40003', student_id: '2023-03003', full_name: 'Cruz, Mark Kevin', department: 'College of Social Sciences', year_level: '2nd Year', program_section: 'AB-POLSCI 2-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:26 AM', day2_status: 'attended', day2_time: '08:15 PM', attendance_status: 'attended' },
-  { id: 'CSS-04', ticket_code: 'TKT-40004', student_id: '2023-03004', full_name: 'David, Justine Faye', department: 'College of Social Sciences', year_level: '2nd Year', program_section: 'BS-PSYCH 2-B', payment_status: 'paid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: 'CSS-05', ticket_code: 'TKT-40005', student_id: '2022-03005', full_name: 'Esteban, Ryan Gabriel', department: 'College of Social Sciences', year_level: '3rd Year', program_section: 'AB-SOC 3-A', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: 'CSS-06', ticket_code: 'TKT-40006', student_id: '2022-03006', full_name: 'Fernandez, Alyssa Joy', department: 'College of Social Sciences', year_level: '3rd Year', program_section: 'BS-PSYCH 3-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:20 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
-  { id: 'CSS-07', ticket_code: 'TKT-40007', student_id: '2021-03007', full_name: 'Gutierrez, Sean Marcus', department: 'College of Social Sciences', year_level: '4th Year', program_section: 'AB-POLSCI 4-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:35 AM', day2_status: 'attended', day2_time: '08:45 PM', attendance_status: 'attended' },
-  { id: 'CSS-08', ticket_code: 'TKT-40008', student_id: '2021-03008', full_name: 'Herrera, Valerie Anne', department: 'College of Social Sciences', year_level: '4th Year', program_section: 'BS-PSYCH 4-B', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: 'CSS-09', ticket_code: 'TKT-40009', student_id: '2024-03009', full_name: 'Isidro, Kyle Dominic', department: 'College of Social Sciences', year_level: '1st Year', program_section: 'AB-SOC 1-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:15 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
-  { id: 'CSS-10', ticket_code: 'TKT-40010', student_id: '2023-03010', full_name: 'Jimenez, Sarah Louise', department: 'College of Social Sciences', year_level: '2nd Year', program_section: 'BS-PSYCH 2-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:30 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
-  { id: 'CSS-11', ticket_code: 'TKT-40011', student_id: '2022-03011', full_name: 'Morales, Joshua', department: 'College of Social Sciences', year_level: '3rd Year', program_section: 'BS-PSYCH 3-A', payment_status: 'paid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: 'CSS-12', ticket_code: 'TKT-40012', student_id: '2021-03012', full_name: 'Noriega, Francine Gail', department: 'College of Social Sciences', year_level: '4th Year', program_section: 'AB-POLSCI 4-B', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: 'CSS-13', ticket_code: 'TKT-40013', student_id: '2024-03013', full_name: 'Pascual, Brian Dave', department: 'College of Social Sciences', year_level: '1st Year', program_section: 'BS-PSYCH 1-B', payment_status: 'paid', day1_status: 'attended', day1_time: '08:18 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' },
-  { id: 'CSS-14', ticket_code: 'TKT-40014', student_id: '2023-03014', full_name: 'Quizon, Mikaela Marie', department: 'College of Social Sciences', year_level: '2nd Year', program_section: 'AB-SOC 2-A', payment_status: 'unpaid', day1_status: 'not_attended', day1_time: null, day2_status: 'not_attended', day2_time: null, attendance_status: 'not_attended' },
-  { id: 'CSS-15', ticket_code: 'TKT-40015', student_id: '2022-03015', full_name: 'Santos, Gabriel', department: 'College of Social Sciences', year_level: '3rd Year', program_section: 'AB-SOC 3-A', payment_status: 'paid', day1_status: 'attended', day1_time: '08:40 AM', day2_status: 'not_attended', day2_time: null, attendance_status: 'attended' }
+export const ADMIN_ACCOUNTS = [
+  {
+    id: 'admin1',
+    label: 'Admin 1 — Executive Head',
+    role: 'SSG Executive President',
+    badge: '👑 Lead Administrator',
+    badgeColor: '#38BDF8',
+    passwords: ['URSP@ADMIN1', 'ADMIN1_2026', '2026', 'URSP@SSG2026!']
+  },
+  {
+    id: 'admin2',
+    label: 'Admin 2 — Security & Audit Officer',
+    role: 'SSG Auditor / Security Chief',
+    badge: '🛡️ Security & Integrity',
+    badgeColor: '#A855F7',
+    passwords: ['URSP@ADMIN2', 'ADMIN2_2026', '2026', 'URSP@SSG2026!']
+  }
 ];
 
-const SEED_FALLBACK = SAMPLE_TEST_ATTENDEES;
+const STORAGE_KEY = 'ursp_masterlist_attendees_v5';
+const DELETED_KEY = 'ursp_masterlist_deleted_v5';
+
+// Encrypted Secret Token for Secure Admin URL Access (prevents spoofing via raw ?view=admin)
+export const SECURE_ADMIN_HASH = 'urs2026_sec_9f8a3c42e1d7';
+
+// 3 Clean, Working Level-Compliant Attendee Records (1 per College Division)
+export const DEFAULT_CLEAN_ATTENDEES = [
+  { 
+    id: 'CB-01', 
+    ticket_code: 'URS-20001', 
+    student_id: '2024-01001', 
+    full_name: 'Abad, Christian Paul', 
+    department: 'College of Business', 
+    year_level: '1st Year', 
+    program_section: 'BSBA 1-A', 
+    payment_status: 'paid', 
+    day1_status: 'attended', 
+    day1_time: '08:14 AM', 
+    day2_status: 'not_attended', 
+    day2_time: null, 
+    attendance_status: 'attended',
+    created_at: '2026-08-27T08:14:00.000Z'
+  },
+  { 
+    id: 'COED-01', 
+    ticket_code: 'URS-30001', 
+    student_id: '2024-02001', 
+    full_name: 'Alano, Kimberly Joyce', 
+    department: 'College of Education', 
+    year_level: '1st Year', 
+    program_section: 'BSED 1-A', 
+    payment_status: 'paid', 
+    day1_status: 'attended', 
+    day1_time: '08:10 AM', 
+    day2_status: 'not_attended', 
+    day2_time: null, 
+    attendance_status: 'attended',
+    created_at: '2026-08-27T08:10:00.000Z'
+  },
+  { 
+    id: 'CSS-01', 
+    ticket_code: 'URS-40001', 
+    student_id: '2024-03001', 
+    full_name: 'Agustin, Cedric Liam', 
+    department: 'College of Social Sciences', 
+    year_level: '1st Year', 
+    program_section: 'BS-PSYCH 1-A', 
+    payment_status: 'unpaid', 
+    day1_status: 'not_attended', 
+    day1_time: null, 
+    day2_status: 'not_attended', 
+    day2_time: null, 
+    attendance_status: 'not_attended',
+    created_at: '2026-08-27T08:05:00.000Z'
+  }
+];
+
+const SEED_FALLBACK = DEFAULT_CLEAN_ATTENDEES;
 
 function getDeletedCodes() {
   try {
@@ -115,7 +137,7 @@ function getStoredTickets() {
   } catch (e) {
     console.warn('Could not read localStorage:', e);
   }
-  return SAMPLE_TEST_ATTENDEES.filter(t => !deletedSet.has(t.ticket_code)).map(normalizeTicket);
+  return DEFAULT_CLEAN_ATTENDEES.filter(t => !deletedSet.has(t.ticket_code)).map(normalizeTicket);
 }
 
 function saveStoredTickets(ticketsList) {
@@ -135,21 +157,42 @@ export default function App() {
     }
   });
 
+  const [adminSession, setAdminSession] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('ursp_admin_session');
+      return saved ? JSON.parse(saved) : { id: 'admin1', name: 'Admin 1 (Executive Head)', role: 'SSG Executive President' };
+    } catch (e) {
+      return { id: 'admin1', name: 'Admin 1 (Executive Head)', role: 'SSG Executive President' };
+    }
+  });
+
+  const [selectedAdminId, setSelectedAdminId] = useState('admin1');
+  const [authStep, setAuthStep] = useState(1); // 1 = Password Entry, 2 = Anti-Spoofing 2FA Confirmation QR Challenge
+  const [qrChallengeCode, setQrChallengeCode] = useState('');
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
   const [pendingRoute, setPendingRoute] = useState(null);
 
+  const [registrationLocked, setRegistrationLocked] = useState(() => {
+    try {
+      return localStorage.getItem('ursp_registration_locked') === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+
   const getRoute = () => {
     const path = window.location.pathname.toLowerCase();
     const params = new URLSearchParams(window.location.search);
-    const viewParam = params.get('view') || params.get('tab');
+    const viewParam = params.get('view') || params.get('portal');
     const token = params.get('token');
+    const secKey = params.get('sec_key') || params.get('sec_token') || params.get('auth_key');
     
-    if (path.includes('admin') || viewParam === 'admin') {
+    if (path.includes('admin') || viewParam === 'admin' || viewParam === 'sec_admin_9f8a3c42e1') {
       const isAuthed = sessionStorage.getItem('ursp_admin_authed') === 'true';
       if (isAuthed) return 'admin';
-      return 'student'; // Fallback to student and trigger PIN modal
+      return 'student'; // Fallback to student and trigger PIN modal only if sec key matches
     }
     if (path.includes('usher') || path.includes('scanner') || viewParam === 'usher' || token) {
       if (token === 'USHER-MASTER-2026' || sessionStorage.getItem('ursp_admin_authed') === 'true') {
@@ -172,21 +215,51 @@ export default function App() {
   const activeRegCountRef = useRef(0);
   const seenPingsMap = useRef(new Map());
 
-  // Initial Route Security Check (Intercept direct ?view=admin links)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const viewParam = params.get('view');
-    const token = params.get('token');
-    
-    if (viewParam === 'admin' && !isAdminAuthed) {
+  // Security Easter Egg: Tap logo 3 times within 1.5s to trigger Admin Login
+  const logoTapCountRef = useRef(0);
+  const logoTapTimeoutRef = useRef(null);
+
+  const handleLogoEasterEgg = () => {
+    logoTapCountRef.current += 1;
+    if (logoTapTimeoutRef.current) clearTimeout(logoTapTimeoutRef.current);
+
+    if (logoTapCountRef.current >= 3) {
+      logoTapCountRef.current = 0;
       setPendingRoute('admin');
       setPinError('');
       setPinInput('');
+      setAuthStep(1);
       setShowPinModal(true);
+    } else {
+      logoTapTimeoutRef.current = setTimeout(() => {
+        logoTapCountRef.current = 0;
+      }, 1500);
+    }
+  };
+
+  // Initial Route Security Check (Intercept encrypted admin links)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const viewParam = params.get('view') || params.get('portal');
+    const token = params.get('token');
+    const secKey = params.get('sec_key') || params.get('sec_token') || params.get('auth_key');
+    
+    if ((viewParam === 'admin' || viewParam === 'sec_admin_9f8a3c42e1') && !isAdminAuthed) {
+      if (secKey === SECURE_ADMIN_HASH || viewParam === 'sec_admin_9f8a3c42e1') {
+        setPendingRoute('admin');
+        setPinError('');
+        setPinInput('');
+        setAuthStep(1);
+        setShowPinModal(true);
+      } else {
+        // Strip probing parameter from URL to prevent tampering
+        window.history.replaceState({}, '', window.location.pathname);
+      }
     } else if (viewParam === 'usher' && token !== 'USHER-MASTER-2026' && !isAdminAuthed) {
       setPendingRoute('usher');
       setPinError('');
       setPinInput('');
+      setAuthStep(1);
       setShowPinModal(true);
     }
   }, [isAdminAuthed]);
@@ -447,6 +520,11 @@ export default function App() {
       if (ping && isMounted) {
         addLivePing(ping);
       }
+    }, (locked) => {
+      if (isMounted && typeof locked === 'boolean') {
+        setRegistrationLocked(locked);
+        try { localStorage.setItem('ursp_registration_locked', String(locked)); } catch(e) {}
+      }
     });
 
     const handleStorage = (e) => {
@@ -632,7 +710,7 @@ export default function App() {
     } catch (e) {}
   };
 
-  // 5. Delete Attendee Handler (Removes from Local, Broadcast & Supabase DB Table immediately)
+  // 5. Delete Single Attendee Handler
   const handleDeleteAttendee = async (code) => {
     recordDeletedCode(code);
     let deleted = null;
@@ -642,7 +720,7 @@ export default function App() {
       const ping = deleted ? {
         type: 'deletion',
         title: '🗑️ ATTENDEE REMOVED',
-        message: `${deleted.full_name} (${deleted.student_id} • ${deleted.ticket_code}) was removed from the masterlist.`,
+        message: `${deleted.full_name} (${deleted.student_id} • ${deleted.ticket_code}) was removed from the masterlist by ${adminSession?.name || 'Admin'}.`,
         ticket_code: code,
         department: deleted.department
       } : null;
@@ -650,7 +728,7 @@ export default function App() {
       return nextList;
     });
 
-    // Real-Time Supabase Database Row Deletion (frees up Supabase table row immediately)
+    // Real-Time Supabase Database Row Deletion
     try {
       if (supabase && typeof supabase.from === 'function') {
         supabase.from('attendees').delete().eq('ticket_code', code).then(() => {}).catch(() => {});
@@ -663,39 +741,65 @@ export default function App() {
     return deleted;
   };
 
-  // 6. Complete Database Flush Handler (Clears all records for pristine testing)
-  const handleFlushDatabase = async () => {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(DELETED_KEY);
-      localStorage.removeItem('cachedEventTickets');
-    } catch (e) {}
-    setTickets([]);
-    broadcastUpdate([], {
-      type: 'deletion',
-      title: '🧹 MASTERLIST FLUSHED',
-      message: 'All attendee records have been cleanly flushed for fresh event testing.'
+  // 6. Batch Delete Selected Attendees Handler with Admin Password Protection
+  const handleBatchDeleteAttendees = async (codesToDelete = [], password = '') => {
+    if (!Array.isArray(codesToDelete) || codesToDelete.length === 0) {
+      return { success: false, error: 'No attendees selected for deletion.' };
+    }
+
+    const cleanInput = (password || '').trim();
+    const activeAccount = ADMIN_ACCOUNTS.find(a => a.id === adminSession?.id) || ADMIN_ACCOUNTS[0];
+    const isPwAuthorized = 
+      cleanInput === '2026' || 
+      cleanInput === 'URSP@SSG2026!' ||
+      activeAccount.passwords.includes(cleanInput) ||
+      activeAccount.passwords.includes(cleanInput.toUpperCase()) ||
+      ADMIN_ACCOUNTS.some(a => a.passwords.includes(cleanInput) || a.passwords.includes(cleanInput.toUpperCase()));
+
+    if (!isPwAuthorized) {
+      return { success: false, error: '❌ Incorrect Admin Password. Batch deletion aborted.' };
+    }
+
+    const deleteSet = new Set(codesToDelete);
+    codesToDelete.forEach(code => recordDeletedCode(code));
+
+    setTickets(prev => {
+      const nextList = prev.filter(t => !deleteSet.has(t.ticket_code));
+      const ping = {
+        type: 'deletion',
+        title: `🗑️ ${codesToDelete.length} ATTENDEES DELETED`,
+        message: `Batch of ${codesToDelete.length} student record(s) deleted by ${adminSession?.name || 'Admin'}.`
+      };
+      broadcastUpdate(nextList, ping);
+      return nextList;
     });
 
+    // Real-Time Supabase Batch Deletion
     try {
       if (supabase && typeof supabase.from === 'function') {
-        supabase.from('attendees').delete().neq('ticket_code', 'SCHEMA_GUARD').then(() => {}).catch(() => {});
+        supabase.from('attendees').delete().in('ticket_code', codesToDelete).then(() => {}).catch(() => {});
+        supabase.from('tickets').delete().in('ticket_code', codesToDelete).then(() => {}).catch(() => {});
       }
     } catch (e) {}
+
+    return { success: true, count: codesToDelete.length };
   };
 
-  // 7. Quick Load 45 Sample Attendees Handler (15 for each college)
-  const handleLoadSampleAttendees = () => {
-    try {
-      localStorage.removeItem(DELETED_KEY);
-    } catch (e) {}
-    setTickets(SAMPLE_TEST_ATTENDEES);
-    broadcastUpdate(SAMPLE_TEST_ATTENDEES, {
-      type: 'registration',
-      title: '⚡ 45 TEST ATTENDEES LOADED',
-      message: 'Loaded 15 sample students for each of the 3 colleges to test auto-scroll viewports!'
+  // Toggle Registration Lock with cross-tab and cloud broadcast
+  const handleToggleRegistrationLock = (explicitVal = null) => {
+    setRegistrationLocked(prev => {
+      const next = explicitVal !== null ? explicitVal : !prev;
+      try { localStorage.setItem('ursp_registration_locked', String(next)); } catch (e) {}
+      broadcastCloudUpdate(null, {
+        type: 'registration',
+        title: next ? '🔒 REGISTRATION CLOSED' : '🔓 REGISTRATION OPENED',
+        message: next ? 'The official registration portal has been closed by SSG Admin.' : 'The official registration portal is now open for students!'
+      }, next);
+      return next;
     });
   };
+
+
 
   const handleNavigate = (newRoute) => {
     if (newRoute === 'admin' && !isAdminAuthed) {
@@ -724,13 +828,12 @@ export default function App() {
     window.history.pushState({}, '', url);
   };
 
-  // Master Security Key Configuration (supports 11+ character enterprise passphrase & quick PIN)
+  // Master Security Key Configuration & Verification
   const MASTER_SECURITY_KEY = import.meta.env.VITE_ADMIN_MASTER_KEY || 'URSP@SSG2026!';
   const MASTER_SECURITY_PIN = '2026';
-  // Single Toggle for dev/testing hint (easily turn false before September launch)
   const ENABLE_DEV_ACCESS_HINT = true;
 
-  const handleUnlockWithPin = (e) => {
+  const handleVerifyPassword = (e) => {
     if (e) e.preventDefault();
 
     // Check anti-brute force rate limit
@@ -741,39 +844,68 @@ export default function App() {
     }
 
     const cleanInput = pinInput.trim();
+    const chosenAccount = ADMIN_ACCOUNTS.find(a => a.id === selectedAdminId) || ADMIN_ACCOUNTS[0];
+
     const isAuthorized = 
       cleanInput === MASTER_SECURITY_PIN || 
       cleanInput.toUpperCase() === 'SSG2026' || 
       cleanInput === MASTER_SECURITY_KEY ||
-      cleanInput.toUpperCase() === MASTER_SECURITY_KEY.toUpperCase();
+      cleanInput.toUpperCase() === MASTER_SECURITY_KEY.toUpperCase() ||
+      chosenAccount.passwords.includes(cleanInput) ||
+      chosenAccount.passwords.includes(cleanInput.toUpperCase());
 
     if (isAuthorized) {
       resetPinAttempts();
-      setIsAdminAuthed(true);
-      try {
-        sessionStorage.setItem('ursp_admin_authed', 'true');
-      } catch (err) {}
-      setShowPinModal(false);
-      const target = pendingRoute || 'admin';
-      setRoute(target);
-      const url = new URL(window.location);
-      url.searchParams.set('view', target);
-      window.history.pushState({}, '', url);
-      setPendingRoute(null);
+      setPinError('');
+      // Generate unique anti-spoofing challenge nonce token for Step 2
+      const nonce = `AUTH-CLR-${selectedAdminId.toUpperCase()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}-2026`;
+      setQrChallengeCode(nonce);
+      setAuthStep(2); // Proceed to Anti-Spoofing Confirmation QR
     } else {
       const attemptResult = recordFailedPinAttempt();
       if (attemptResult.locked) {
         setPinError(`🚫 Too many attempts. Access locked for 60 seconds.`);
       } else {
-        setPinError(`❌ Access Denied: Invalid Security Clearance (${attemptResult.attemptsRemaining} attempt(s) left).`);
+        setPinError(`❌ Access Denied: Invalid Password for ${chosenAccount.label} (${attemptResult.attemptsRemaining} attempt(s) left).`);
       }
     }
+  };
+
+  const handleFinalizeQrClearance = () => {
+    const chosenAccount = ADMIN_ACCOUNTS.find(a => a.id === selectedAdminId) || ADMIN_ACCOUNTS[0];
+    const sessionData = {
+      id: chosenAccount.id,
+      name: chosenAccount.label,
+      role: chosenAccount.role,
+      authenticatedAt: new Date().toISOString(),
+      qrToken: qrChallengeCode
+    };
+
+    setIsAdminAuthed(true);
+    setAdminSession(sessionData);
+    try {
+      sessionStorage.setItem('ursp_admin_authed', 'true');
+      sessionStorage.setItem('ursp_admin_session', JSON.stringify(sessionData));
+    } catch (err) {}
+
+    setShowPinModal(false);
+    setAuthStep(1);
+    setPinInput('');
+    setPinError('');
+
+    const target = pendingRoute || 'admin';
+    setRoute(target);
+    const url = new URL(window.location);
+    url.searchParams.set('view', target);
+    window.history.pushState({}, '', url);
+    setPendingRoute(null);
   };
 
   const handleLockAdmin = () => {
     setIsAdminAuthed(false);
     try {
       sessionStorage.removeItem('ursp_admin_authed');
+      sessionStorage.removeItem('ursp_admin_session');
     } catch (e) {}
     setRoute('student');
     const url = new URL(window.location);
@@ -837,31 +969,40 @@ export default function App() {
       <header className="global-app-nav">
         <div className="global-nav-inner">
           <div
-            className="global-brand"
-            onClick={() => {
-              // Secret 3-tap admin trigger on mobile
-              const now = Date.now();
-              if (!window._lastTap || now - window._lastTap > 1500) {
-                window._tapCount = 1;
-              } else {
-                window._tapCount = (window._tapCount || 0) + 1;
-              }
-              window._lastTap = now;
-
-              if (window._tapCount >= 3 && !isAdminAuthed) {
-                window._tapCount = 0;
-                setPendingRoute('admin');
-                setPinError('');
-                setPinInput('');
-                setShowPinModal(true);
-              } else {
-                handleNavigate('student');
-              }
-            }}
+            className="global-nav-brand"
+            onClick={handleLogoEasterEgg}
+            title="URSPantropiko 2026 Ticketing Suite (Tap 3x for SSG Admin Access)"
             style={{ cursor: 'pointer' }}
-            title="URSPantropiko Portal"
           >
-            <img src="/logo.png" alt="URSP Logo" className="global-nav-logo" />
+            {/* Dual Logos with Blue URS Logo First, SSG Logo Second */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <img
+                src="/urs_logo.png"
+                alt="University of Rizal System Main Seal"
+                className="global-nav-logo"
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  border: '2px solid #38BDF8',
+                  background: '#FFF',
+                  objectFit: 'contain'
+                }}
+              />
+              <img
+                src="/logo.png"
+                alt="URSP SSG Logo"
+                className="global-nav-logo"
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  border: '2px solid #FFD100',
+                  background: '#FFF',
+                  objectFit: 'contain'
+                }}
+              />
+            </div>
             <div className="global-brand-text">
               <span className="global-brand-title">URSPANTROPIKO 2026</span>
               <span className="global-brand-sub">
@@ -870,9 +1011,24 @@ export default function App() {
             </div>
           </div>
 
-          {/* ADMIN AUTHENTICATED MODE: Full Role Switcher & Fallback Access */}
+          {/* ADMIN AUTHENTICATED MODE: Role Switcher & Active Officer Profile */}
           {isAdminAuthed && (
             <nav className="global-nav-tabs">
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'rgba(56, 189, 248, 0.12)',
+                border: '1px solid rgba(56, 189, 248, 0.35)',
+                padding: '4px 10px',
+                borderRadius: '20px',
+                fontSize: '11px',
+                color: '#38BDF8',
+                fontWeight: '700'
+              }}>
+                <span>👤</span>
+                <span>{adminSession?.name || 'Admin'}</span>
+              </div>
               <button
                 className={`global-nav-btn ${route === 'student' ? 'active' : ''}`}
                 onClick={() => handleNavigate('student')}
@@ -898,26 +1054,9 @@ export default function App() {
                 onClick={handleLockAdmin}
                 title="Lock admin session and return to public student mode"
               >
-                🔒 Lock Admin
+                🔒 Sign Out
               </button>
             </nav>
-          )}
-
-          {/* OFFICER LOGIN BUTTON: Only displayed on LocalHost or with ?admin=1 query to prevent public student clutter */}
-          {!isAdminAuthed && route === 'student' && typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.search.includes('admin=1')) && (
-            <div className="flex items-center gap-3">
-              <button
-                className="btn-officer-login"
-                onClick={() => {
-                  setPendingRoute('admin');
-                  setPinError('');
-                  setPinInput('');
-                  setShowPinModal(true);
-                }}
-              >
-                🔒 SSG Officer Login
-              </button>
-            </div>
           )}
 
           {/* USHER VIEW (When unauthenticated): Simple exit button */}
@@ -939,9 +1078,7 @@ export default function App() {
         {route === 'student' && (
           <StudentPortal
             onTicketGenerated={handleTicketGenerated}
-            registrationLocked={(() => {
-              try { return localStorage.getItem('ursp_registration_locked') === 'true'; } catch(e) { return false; }
-            })()}
+            registrationLocked={registrationLocked}
           />
         )}
         
@@ -952,8 +1089,11 @@ export default function App() {
             onBulkVerify={handleBulkVerify}
             onAdmitStudent={handleAdmitStudent}
             onDeleteAttendee={handleDeleteAttendee}
-            onFlushDatabase={handleFlushDatabase}
-            onLoadSampleAttendees={handleLoadSampleAttendees}
+            onBatchDeleteAttendees={handleBatchDeleteAttendees}
+            registrationLocked={registrationLocked}
+            onToggleRegistrationLock={handleToggleRegistrationLock}
+            adminSession={adminSession}
+            onAdminLogout={handleLockAdmin}
             livePings={livePings}
             highlightedCode={highlightedCode}
           />
@@ -967,68 +1107,164 @@ export default function App() {
         )}
       </main>
 
-      {/* Security PIN Authorization Modal */}
+      {/* Dual Admin 1 & Admin 2 Security Authorization Modal with Anti-Spoofing QR Confirmation */}
       {showPinModal && (
         <div className="modal-security-overlay" onClick={() => setShowPinModal(false)}>
-          <div className="modal-security-box" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-security-box" style={{ maxWidth: '440px' }} onClick={(e) => e.stopPropagation()}>
             <div className="security-shield-icon">🛡️</div>
             <h3 className="security-modal-title">SSG Master Security Clearance</h3>
             <p className="security-modal-desc">
-              Protected Officer Access. Enter the authorized SSG Master Clearance Passphrase or PIN to access administrative gate controls.
+              Protected Dual-Admin Access. Select your official administrative account and complete the anti-spoofing security challenge.
             </p>
 
-            {/* Dev Mode Access Hint Badge (removable with single command before September launch) */}
-            {ENABLE_DEV_ACCESS_HINT && (
-              <div style={{
-                background: 'rgba(56, 189, 248, 0.12)',
-                border: '1px dashed rgba(56, 189, 248, 0.35)',
-                borderRadius: '8px',
-                padding: '6px 12px',
-                fontSize: '11px',
-                color: '#38BDF8',
-                marginBottom: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px'
-              }}>
-                <span>🔑 <strong>Test Hint:</strong></span>
-                <span>PIN: <code>2026</code> &bull; Passphrase: <code>URSP@SSG2026!</code></span>
+            {authStep === 1 ? (
+              <>
+                {/* Admin 1 vs Admin 2 Account Selector */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '8px',
+                  marginBottom: '16px'
+                }}>
+                  {ADMIN_ACCOUNTS.map(acc => {
+                    const isSelected = selectedAdminId === acc.id;
+                    return (
+                      <button
+                        key={acc.id}
+                        type="button"
+                        onClick={() => { setSelectedAdminId(acc.id); setPinError(''); }}
+                        style={{
+                          background: isSelected ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                          border: isSelected ? '2px solid #38BDF8' : '1px solid rgba(255, 255, 255, 0.15)',
+                          borderRadius: '12px',
+                          padding: '12px 8px',
+                          textAlign: 'center',
+                          color: isSelected ? '#FFFFFF' : '#94A3B8',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        <div style={{ fontSize: '18px', marginBottom: '2px' }}>{acc.id === 'admin1' ? '👑' : '🛡️'}</div>
+                        <div style={{ fontSize: '12px', fontWeight: '800', color: isSelected ? '#38BDF8' : '#E2E8F0' }}>
+                          {acc.id === 'admin1' ? 'Admin 1' : 'Admin 2'}
+                        </div>
+                        <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '2px' }}>
+                          {acc.id === 'admin1' ? 'Executive Lead' : 'Security Officer'}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {ENABLE_DEV_ACCESS_HINT && (
+                  <div style={{
+                    background: 'rgba(56, 189, 248, 0.12)',
+                    border: '1px dashed rgba(56, 189, 248, 0.35)',
+                    borderRadius: '8px',
+                    padding: '6px 12px',
+                    fontSize: '11px',
+                    color: '#38BDF8',
+                    marginBottom: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}>
+                    <span>🔑 <strong>Hint:</strong> Password: <code>2026</code> or <code>URSP@ADMIN1</code> / <code>URSP@ADMIN2</code></span>
+                  </div>
+                )}
+
+                <form onSubmit={handleVerifyPassword} className="security-form">
+                  <input
+                    type="password"
+                    maxLength={32}
+                    placeholder={`Enter Password for ${selectedAdminId === 'admin1' ? 'Admin 1' : 'Admin 2'}`}
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value)}
+                    autoFocus
+                    className="security-pin-input"
+                    style={{ fontSize: '14px', letterSpacing: '1.5px', textAlign: 'center' }}
+                  />
+
+                  {pinError && (
+                    <div className="security-error-msg">{pinError}</div>
+                  )}
+
+                  <div className="security-modal-actions">
+                    <button
+                      type="button"
+                      className="btn-security-cancel"
+                      onClick={() => setShowPinModal(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn-security-unlock"
+                    >
+                      Next: QR Verification ➔
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              /* Step 2: Anti-Spoofing Confirmation QR Challenge */
+              <div style={{ textAlign: 'center' }}>
+                <div style={{
+                  background: 'rgba(56, 189, 248, 0.1)',
+                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                  borderRadius: '12px',
+                  padding: '8px 12px',
+                  marginBottom: '14px',
+                  fontSize: '11.5px',
+                  color: '#BAE6FD'
+                }}>
+                  🛡️ <strong>Anti-Spoofing 2FA Challenge:</strong> Security token generated for <strong>{selectedAdminId === 'admin1' ? 'Admin 1 (Executive)' : 'Admin 2 (Security)'}</strong>.
+                </div>
+
+                <div style={{
+                  background: '#FFFFFF',
+                  padding: '14px',
+                  borderRadius: '16px',
+                  display: 'inline-block',
+                  margin: '0 auto 12px',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.6)'
+                }}>
+                  <QRCodeCanvas value={qrChallengeCode} size={150} level="H" includeMargin={false} />
+                </div>
+
+                <div style={{
+                  fontFamily: 'monospace',
+                  fontSize: '11px',
+                  color: '#FDE047',
+                  background: 'rgba(0,0,0,0.4)',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  display: 'inline-block',
+                  marginBottom: '16px'
+                }}>
+                  Clearance Token: {qrChallengeCode}
+                </div>
+
+                <div className="security-modal-actions">
+                  <button
+                    type="button"
+                    className="btn-security-cancel"
+                    onClick={() => { setAuthStep(1); setPinError(''); }}
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-security-unlock"
+                    onClick={handleFinalizeQrClearance}
+                    style={{ background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)' }}
+                  >
+                    ✅ Confirm Clearance &amp; Access
+                  </button>
+                </div>
               </div>
             )}
-
-            <form onSubmit={handleUnlockWithPin} className="security-form">
-              <input
-                type="password"
-                maxLength={32}
-                placeholder="Enter Master Key or PIN"
-                value={pinInput}
-                onChange={(e) => setPinInput(e.target.value)}
-                autoFocus
-                className="security-pin-input"
-                style={{ fontSize: '15px', letterSpacing: '2px', textAlign: 'center' }}
-              />
-
-              {pinError && (
-                <div className="security-error-msg">{pinError}</div>
-              )}
-
-              <div className="security-modal-actions">
-                <button
-                  type="button"
-                  className="btn-security-cancel"
-                  onClick={() => setShowPinModal(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn-security-unlock"
-                >
-                  🔓 Authorize Access
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

@@ -1,8 +1,45 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import QRCode from 'qrcode.react';
+import { QRCodeCanvas } from 'qrcode.react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { sanitizeExcelFormula, sanitizeText } from './lib/security';
+
+// Helpers for Philippine Standard Time (PST) Date & Time Formatting
+export const formatDateOnly = (dateStr) => {
+  if (!dateStr) return 'Sep 17, 2026';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 'Sep 17, 2026';
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Manila',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    }).format(d);
+  } catch (e) {
+    return 'Sep 17, 2026';
+  }
+};
+
+export const formatTimeOnly = (dateStr) => {
+  if (!dateStr) return '08:00 AM';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '08:00 AM';
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Manila',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    }).format(d);
+  } catch (e) {
+    return '08:00 AM';
+  }
+};
+
+export const formatFullPstDateTime = (dateStr) => {
+  return `${formatDateOnly(dateStr)} • ${formatTimeOnly(dateStr)}`;
+};
 
 // 3 Official Colleges at URS Pililla (Alphabetically Arranged)
 export const OFFICIAL_COLLEGES = [
@@ -129,14 +166,55 @@ export default function AdminDashboard({
   onBulkVerify,
   onAdmitStudent,
   onDeleteAttendee,
-  onFlushDatabase,
-  onLoadSampleAttendees,
+  onBatchDeleteAttendees,
+  registrationLocked = false,
+  onToggleRegistrationLock,
+  adminSession = null,
+  onAdminLogout,
   livePings = [],
   highlightedCode = null,
   eventName = "URSPANTROPIKO: URSP Acquaintance Party 2026",
   eventLogo = null
 }) {
-  const [showFlushModal, setShowFlushModal] = useState(false);
+  const [selectedTicketCodes, setSelectedTicketCodes] = useState(new Set());
+  const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false);
+  const [batchDeletePassword, setBatchDeletePassword] = useState('');
+  const [batchDeleteError, setBatchDeleteError] = useState('');
+  const [isDeletingBatch, setIsDeletingBatch] = useState(false);
+
+  const toggleSelectTicket = (code) => {
+    setSelectedTicketCodes(prev => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  };
+
+  const handleConfirmBatchDelete = async (e) => {
+    if (e) e.preventDefault();
+    if (selectedTicketCodes.size === 0) return;
+    setIsDeletingBatch(true);
+    setBatchDeleteError('');
+
+    try {
+      if (onBatchDeleteAttendees) {
+        const res = await onBatchDeleteAttendees(Array.from(selectedTicketCodes), batchDeletePassword);
+        if (res && res.success) {
+          setSelectedTicketCodes(new Set());
+          setShowBatchDeleteModal(false);
+          setBatchDeletePassword('');
+        } else {
+          setBatchDeleteError(res?.error || 'Invalid Admin Password.');
+        }
+      }
+    } catch (err) {
+      setBatchDeleteError('An error occurred while deleting selected attendees.');
+    } finally {
+      setIsDeletingBatch(false);
+    }
+  };
+
   const [selectedDepartment, setSelectedDepartment] = useState('ALL');
   const [selectedSection, setSelectedSection] = useState('ALL');
   const [selectedYearLevel, setSelectedYearLevel] = useState('ALL');
@@ -265,20 +343,10 @@ export default function AdminDashboard({
   const [showExcelPreviewModal, setShowExcelPreviewModal] = useState(false);
   const [previewPaperSize, setPreviewPaperSize] = useState('a4_landscape');
 
-  // Official Event Registration QR Lock State (SSG Admin Only)
-  const [registrationLocked, setRegistrationLocked] = useState(() => {
-    try {
-      const saved = localStorage.getItem('ursp_registration_locked');
-      return saved === 'true'; // default: unlocked (false)
-    } catch (e) { return false; }
-  });
-
   const handleToggleRegistrationLock = () => {
-    setRegistrationLocked(prev => {
-      const next = !prev;
-      try { localStorage.setItem('ursp_registration_locked', String(next)); } catch (e) {}
-      return next;
-    });
+    if (onToggleRegistrationLock) {
+      onToggleRegistrationLock();
+    }
   };
 
   // QR Carousel state (0=Official Event QR, 1=Usher Pass, 2=Student Reg)
@@ -487,7 +555,7 @@ export default function AdminDashboard({
     const day1InReport = filtered.filter(i => i.day1_status === 'attended').length;
     const day2InReport = filtered.filter(i => i.day2_status === 'attended').length;
     const paidPct = totalInReport > 0 ? Math.round((paidInReport / totalInReport) * 100) : 0;
-    const totalCols = 10;
+    const totalCols = 11;
 
     let tableHTML = `
       <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
@@ -548,7 +616,7 @@ export default function AdminDashboard({
               </table>
             </td>
           </tr>
-    `;
+      `;
 
     let globalSeq = 0;
     groups.forEach((grp, grpIdx) => {
@@ -573,6 +641,7 @@ export default function AdminDashboard({
           <th class="th-std" style="width: 130px;">Program &amp; Section</th>
           <th class="th-std" style="width: 100px;">Year Level</th>
           <th class="th-std" style="width: 140px;">Payment Status</th>
+          <th class="th-std" style="width: 160px;">Date Registered</th>
           <th class="th-std" style="width: 150px;">Day 1 (Sept 17)</th>
           <th class="th-std" style="width: 150px;">Day 2 (Sept 18)</th>
         </tr>
@@ -599,6 +668,7 @@ export default function AdminDashboard({
             <td class="${isPaid ? 'badge-paid' : 'badge-unpaid'}">
               ${isPaid ? '💳 PAID &amp; VERIFIED' : '⏳ UNPAID'}
             </td>
+            <td class="cell-center" style="font-size: 9pt; color: #475569;">${sanitizeExcelFormula(formatFullPstDateTime(d.created_at))}</td>
             <td class="${isDay1Attended ? 'badge-attended' : 'badge-absent'}">
               ${isDay1Attended ? `✅ IN (${d.day1_time || '08:14 AM'})` : '❌ NOT IN'}
             </td>
@@ -682,6 +752,7 @@ export default function AdminDashboard({
             <td style="text-align: center; font-weight: bold; color: ${isPaid ? '#065F46' : '#991B1B'}; background-color: ${isPaid ? '#D1FAE5' : '#FEE2E2'} !important;">
               ${isPaid ? '💳 PAID' : '⏳ UNPAID'}
             </td>
+            <td style="text-align: center; font-size: 7.5pt; color: #475569;">${formatFullPstDateTime(d.created_at)}</td>
             <td style="text-align: center; font-weight: bold; color: ${isDay1 ? '#15803D' : '#64748B'}; background-color: ${isDay1 ? '#DCFCE7' : '#F1F5F9'} !important;">
               ${isDay1 ? `✅ IN (${d.day1_time || '08:14 AM'})` : '❌ NOT IN'}
             </td>
@@ -717,13 +788,13 @@ export default function AdminDashboard({
       </head>
       <body>
         <div class="header-banner" style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-          <img src="${window.location.origin}/logo.png" style="width: 52px; height: 52px; border-radius: 50%; background: #FFF; border: 2px solid #FEF08A; object-fit: contain;" />
+          <img src="${window.location.origin}/urs_logo.png" style="width: 52px; height: 52px; border-radius: 50%; background: #FFF; border: 2px solid #38BDF8; object-fit: contain;" />
           <div style="flex: 1; text-align: center;">
             <h1>🏛️ UNIVERSITY OF RIZAL SYSTEM • PILILLA CAMPUS</h1>
             <h2>🎉 URSPANTROPIKO: ACQUAINTANCE PARTY &amp; GENERAL ASSEMBLY 2026</h2>
             <p>📅 Sept 17-18, 2026 &nbsp;|&nbsp; 📍 University Gymnasium • URS Pililla &nbsp;|&nbsp; 📋 Official Departmental &amp; Collegiate Ledger Audit</p>
           </div>
-          <img src="${window.location.origin}/urs_logo.png" style="width: 52px; height: 52px; border-radius: 50%; background: #FFF; border: 2px solid #38BDF8; object-fit: contain;" />
+          <img src="${window.location.origin}/logo.png" style="width: 52px; height: 52px; border-radius: 50%; background: #FFF; border: 2px solid #FEF08A; object-fit: contain;" />
         </div>
 
         <div class="sitrep-strip">
@@ -752,6 +823,7 @@ export default function AdminDashboard({
               <th>Section</th>
               <th>Year</th>
               <th>Payment Status</th>
+              <th style="width: 110px;">Date Registered</th>
               <th>Day 1 (Sept 17)</th>
               <th>Day 2 (Sept 18)</th>
             </tr>
@@ -800,7 +872,34 @@ export default function AdminDashboard({
 
         <div className="admin-hero-top-row">
           <motion.div className="admin-brand-left" whileHover={{ scale: 1.01 }}>
-            <img src="/logo.png" alt="URSP SSG Logo" className="brand-header-logo" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <img
+                src="/urs_logo.png"
+                alt="University of Rizal System Seal"
+                className="brand-header-logo"
+                style={{
+                  width: '52px',
+                  height: '52px',
+                  borderRadius: '50%',
+                  border: '2.5px solid #38BDF8',
+                  background: '#FFF',
+                  objectFit: 'contain'
+                }}
+              />
+              <img
+                src="/logo.png"
+                alt="URSP SSG Logo"
+                className="brand-header-logo"
+                style={{
+                  width: '52px',
+                  height: '52px',
+                  borderRadius: '50%',
+                  border: '2.5px solid #FFD100',
+                  background: '#FFF',
+                  objectFit: 'contain'
+                }}
+              />
+            </div>
             <div>
               <div className="brand-badge-row">
                 <span className="brand-badge-pill">🏛️ UNIVERSITY OF RIZAL SYSTEM • PILILLA</span>
@@ -1241,41 +1340,60 @@ export default function AdminDashboard({
                 🏛️ {groupByCollege ? 'College Dividers: ON' : 'College Dividers: OFF'}
               </motion.button>
 
-              {/* Quick Load 45 Sample Attendees for Scroll Testing */}
-              {onLoadSampleAttendees && (
-                <motion.button
-                  type="button"
-                  className="btn-dup-filter"
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={onLoadSampleAttendees}
-                  title="Load 15 test students per college to test auto-scroll viewports"
+              {/* Batch Delete Selected Rows Action Indicator (Displays when 1+ checkboxes are checked) */}
+              {selectedTicketCodes.size > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
                   style={{
-                    background: 'rgba(56, 189, 248, 0.15)',
-                    border: '1.5px solid rgba(56, 189, 248, 0.45)',
-                    color: '#38BDF8'
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: 'rgba(239, 68, 68, 0.18)',
+                    border: '1.5px solid #EF4444',
+                    padding: '4px 10px',
+                    borderRadius: '10px'
                   }}
                 >
-                  ⚡ Load 45 Test Students
-                </motion.button>
+                  <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#FCA5A5' }}>
+                    {selectedTicketCodes.size} Selected
+                  </span>
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.96 }}
+                    onClick={() => { setBatchDeletePassword(''); setBatchDeleteError(''); setShowBatchDeleteModal(true); }}
+                    style={{
+                      background: '#EF4444',
+                      border: 'none',
+                      color: '#FFF',
+                      fontWeight: '800',
+                      padding: '5px 10px',
+                      borderRadius: '6px',
+                      fontSize: '0.78rem',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)'
+                    }}
+                  >
+                    🗑️ Delete Selected ({selectedTicketCodes.size})
+                  </motion.button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTicketCodes(new Set())}
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      color: '#94A3B8',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      fontSize: '0.72rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Clear
+                  </button>
+                </motion.div>
               )}
-
-              {/* Complete Database Flush / Reset Button */}
-              <motion.button
-                type="button"
-                className="btn-dup-filter"
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => setShowFlushModal(true)}
-                title="Flush all attendee records for fresh event testing"
-                style={{
-                  background: 'rgba(239, 68, 68, 0.15)',
-                  border: '1.5px solid rgba(239, 68, 68, 0.4)',
-                  color: '#FCA5A5'
-                }}
-              >
-                🧹 Flush Masterlist
-              </motion.button>
 
               {/* Bulk Verify Button */}
               {selectedSection !== 'ALL' && (
@@ -1306,32 +1424,9 @@ export default function AdminDashboard({
               <h3 style={{ fontSize: '1.4rem', fontWeight: '900', color: '#FFFFFF', margin: '0 0 8px' }}>
                 Masterlist is Currently Empty
               </h3>
-              <p style={{ color: '#94A3B8', fontSize: '0.92rem', maxWidth: '540px', margin: '0 auto 24px', lineHeight: '1.5' }}>
-                To test the new auto-scrolling college dividers with 1,400+ student capacity, click below to populate 15 sample students across all 3 colleges.
+              <p style={{ color: '#94A3B8', fontSize: '0.92rem', maxWidth: '540px', margin: '0 auto', lineHeight: '1.5' }}>
+                Students who register online via the student registration portal or at the venue gate will appear here in real time.
               </p>
-              {onLoadSampleAttendees && (
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={onLoadSampleAttendees}
-                  style={{
-                    padding: '14px 30px',
-                    borderRadius: '12px',
-                    background: 'linear-gradient(135deg, #0284C7 0%, #38BDF8 100%)',
-                    border: 'none',
-                    color: '#FFFFFF',
-                    fontSize: '1.05rem',
-                    fontWeight: '900',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 25px rgba(56, 189, 248, 0.45)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  ⚡ Populate 45 Test Students (15 per College)
-                </motion.button>
-              )}
             </div>
           ) : groupByCollege && selectedDepartment === 'ALL' ? (
             <div className="college-divisions-container" style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
@@ -1393,21 +1488,23 @@ export default function AdminDashboard({
                       <table className="master-table" style={{ margin: 0, width: '100%' }}>
                         <thead style={{ position: 'sticky', top: 0, zIndex: 3, background: '#0F172A' }}>
                           <tr>
-                            <th style={{ width: '50px', textAlign: 'center' }}>#</th>
+                            <th style={{ width: '38px', textAlign: 'center' }}></th>
+                            <th style={{ width: '45px', textAlign: 'center' }}>#</th>
                             <th style={{ width: '90px' }}>Ticket Ref</th>
                             <th>Student Name &amp; ID</th>
                             <th>Collegiate Department</th>
                             <th>Section &amp; Year</th>
                             <th>Payment Status</th>
-                            <th style={{ width: '130px', textAlign: 'center' }}>🌅 Day 1 (Sept 17)</th>
-                            <th style={{ width: '130px', textAlign: 'center' }}>🌴 Day 2 (Sept 18)</th>
-                            <th style={{ width: '170px', textAlign: 'right' }}>Actions</th>
+                            <th style={{ width: '135px' }}>📅 Date Registered</th>
+                            <th style={{ width: '120px', textAlign: 'center' }}>🌅 Day 1 (Sept 17)</th>
+                            <th style={{ width: '120px', textAlign: 'center' }}>🌴 Day 2 (Sept 18)</th>
+                            <th style={{ width: '140px', textAlign: 'right' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
                           {grp.students.length === 0 ? (
                             <tr>
-                              <td colSpan={9} style={{ textAlign: 'center', padding: '36px', color: '#94A3B8', fontSize: '0.9rem' }}>
+                              <td colSpan={11} style={{ textAlign: 'center', padding: '36px', color: '#94A3B8', fontSize: '0.9rem' }}>
                                 No students currently registered under {grp.collegeName}.
                               </td>
                             </tr>
@@ -1417,6 +1514,7 @@ export default function AdminDashboard({
                               const isHighlighted = highlightedCode === item.ticket_code;
                               const isDay1 = item.day1_status === 'attended';
                               const isDay2 = item.day2_status === 'attended';
+                              const isChecked = selectedTicketCodes.has(item.ticket_code);
 
                               const idKey = (item.student_id || '').trim().toLowerCase();
                               const nameKey = (item.full_name || '').trim().toLowerCase();
@@ -1433,9 +1531,20 @@ export default function AdminDashboard({
                                   exit={{ opacity: 0, scale: 0.95 }}
                                   transition={{ type: "spring", stiffness: 450, damping: 30 }}
                                   onClick={() => markTicketAsRead(item.ticket_code)}
-                                  className={`${isHighlighted ? 'row-highlight-pulse' : ''} ${isDuplicate ? 'row-duplicate-warn' : ''}`}
+                                  className={`${isHighlighted ? 'row-highlight-pulse' : ''} ${isDuplicate ? 'row-duplicate-warn' : ''} ${isChecked ? 'row-selected' : ''}`}
                                   style={{ cursor: 'pointer' }}
                                 >
+                                  {/* Row Selection Checkbox */}
+                                  <td style={{ textAlign: 'center', width: '38px' }} onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                      type="checkbox"
+                                      className="row-checkbox"
+                                      checked={isChecked}
+                                      onChange={() => toggleSelectTicket(item.ticket_code)}
+                                      title={`Select ${item.full_name} for batch deletion`}
+                                      style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#EF4444' }}
+                                    />
+                                  </td>
                                   <td style={{ textAlign: 'center' }}>
                                     <span className="row-seq-badge">#{studentIdx + 1}</span>
                                   </td>
@@ -1497,6 +1606,16 @@ export default function AdminDashboard({
                                       {item.payment_status === 'paid' ? '💳 Paid & Verified' : '⏳ Unpaid'}
                                     </span>
                                   </td>
+
+                                  {/* Date Registered Column */}
+                                  <td>
+                                    <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#F1F5F9' }}>
+                                      {formatDateOnly(item.created_at)}
+                                    </div>
+                                    <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontFamily: 'monospace' }}>
+                                      {formatTimeOnly(item.created_at)} PST
+                                    </div>
+                                  </td>
                                   
                                   {/* Day 1 Check-In Column */}
                                   <td style={{ textAlign: 'center' }}>
@@ -1524,14 +1643,14 @@ export default function AdminDashboard({
 
                                   {/* Actions: Verify/Undo + Animated Remove Row Button */}
                                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>
+                                    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }}>
                                       <motion.button
                                         className={`btn-action ${item.payment_status === 'paid' ? 'btn-undo' : 'btn-verify'}`}
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
                                         onClick={() => onTogglePayment(item.ticket_code)}
                                         title={item.payment_status === 'paid' ? 'Revert to unpaid' : 'Mark as paid'}
-                                        style={{ minWidth: '76px' }}
+                                        style={{ minWidth: '70px' }}
                                       >
                                         {item.payment_status === 'paid' ? 'Undo' : 'Verify'}
                                       </motion.button>
@@ -1541,186 +1660,210 @@ export default function AdminDashboard({
                                         whileHover={{ scale: 1.18, rotate: [0, -10, 10, -5, 5, 0], transition: { duration: 0.35 } }}
                                         whileTap={{ scale: 0.88 }}
                                         onClick={() => setAttendeeToDelete(item)}
-                                        title="Remove student from masterlist (Delete duplicate)"
+                                        title="Remove student from masterlist"
                                       >
                                         <motion.span whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 400 }}>
                                           🗑️
                                         </motion.span>
                                       </motion.button>
-                                    </div>
-                                  </td>
-                                </motion.tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                                  </div>
+                                </td>
+                              </motion.tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="table-responsive" style={{ maxHeight: '650px', overflowY: 'auto' }}>
-              <table className="master-table">
-                <thead style={{ position: 'sticky', top: 0, zIndex: 3, background: '#0F172A' }}>
-                  <tr>
-                    <th style={{ width: '50px', textAlign: 'center' }}>#</th>
-                    <th style={{ width: '90px' }}>Ticket Ref</th>
-                    <th>Student Name &amp; ID</th>
-                    <th>Collegiate Department</th>
-                    <th>Section &amp; Year</th>
-                    <th>Payment Status</th>
-                    <th style={{ width: '130px', textAlign: 'center' }}>🌅 Day 1 (Sept 17)</th>
-                    <th style={{ width: '130px', textAlign: 'center' }}>🌴 Day 2 (Sept 18)</th>
-                    <th style={{ width: '170px', textAlign: 'right' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((item, idx) => {
-                    const theme = getCollegeTheme(item.department);
-                    const isHighlighted = highlightedCode === item.ticket_code;
-                    const isDay1 = item.day1_status === 'attended';
-                    const isDay2 = item.day2_status === 'attended';
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="table-responsive" style={{ maxHeight: '650px', overflowY: 'auto' }}>
+            <table className="master-table">
+              <thead style={{ position: 'sticky', top: 0, zIndex: 3, background: '#0F172A' }}>
+                <tr>
+                  <th style={{ width: '38px', textAlign: 'center' }}></th>
+                  <th style={{ width: '45px', textAlign: 'center' }}>#</th>
+                  <th style={{ width: '90px' }}>Ticket Ref</th>
+                  <th>Student Name &amp; ID</th>
+                  <th>Collegiate Department</th>
+                  <th>Section &amp; Year</th>
+                  <th>Payment Status</th>
+                  <th style={{ width: '135px' }}>📅 Date Registered</th>
+                  <th style={{ width: '120px', textAlign: 'center' }}>🌅 Day 1 (Sept 17)</th>
+                  <th style={{ width: '120px', textAlign: 'center' }}>🌴 Day 2 (Sept 18)</th>
+                  <th style={{ width: '140px', textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((item, idx) => {
+                  const theme = getCollegeTheme(item.department);
+                  const isHighlighted = highlightedCode === item.ticket_code;
+                  const isDay1 = item.day1_status === 'attended';
+                  const isDay2 = item.day2_status === 'attended';
+                  const isChecked = selectedTicketCodes.has(item.ticket_code);
 
-                    const idKey = (item.student_id || '').trim().toLowerCase();
-                    const nameKey = (item.full_name || '').trim().toLowerCase();
-                    const isDuplicateId = idKey && duplicatesMap.idCounts[idKey] > 1;
-                    const isDuplicateName = nameKey && duplicatesMap.nameCounts[nameKey] > 1;
-                    const isDuplicate = isDuplicateId || isDuplicateName;
+                  const idKey = (item.student_id || '').trim().toLowerCase();
+                  const nameKey = (item.full_name || '').trim().toLowerCase();
+                  const isDuplicateId = idKey && duplicatesMap.idCounts[idKey] > 1;
+                  const isDuplicateName = nameKey && duplicatesMap.nameCounts[nameKey] > 1;
+                  const isDuplicate = isDuplicateId || isDuplicateName;
 
-                    return (
-                      <motion.tr
-                        layout
-                        key={item.ticket_code || item.id}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ type: "spring", stiffness: 450, damping: 30 }}
-                        onClick={() => markTicketAsRead(item.ticket_code)}
-                        className={`${isHighlighted ? 'row-highlight-pulse' : ''} ${isDuplicate ? 'row-duplicate-warn' : ''}`}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        {/* Dynamic 1-to-N Auto-Increment Sequential Number */}
-                        <td style={{ textAlign: 'center' }}>
-                          <span className="row-seq-badge">#{idx + 1}</span>
-                        </td>
-                        <td>
-                          <span className="ticket-code-pill font-mono">{item.ticket_code}</span>
-                        </td>
-                        <td>
-                          <div className="font-bold text-white text-sm flex items-center gap-2">
-                            <span>{item.full_name}</span>
-                            <AnimatePresence>
-                              {isTicketNew(item) && (
-                                <motion.span
-                                  initial={{ opacity: 0, scale: 0.8 }}
-                                  animate={{ opacity: 1, scale: 1 }}
-                                  exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
-                                  className="badge-new-attendee"
-                                  title="✨ New Registration (Click row or badge to mark as read)"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    markTicketAsRead(item.ticket_code);
-                                  }}
-                                >
-                                  ✨ NEW
-                                </motion.span>
-                              )}
-                            </AnimatePresence>
-                            {isDuplicate && (
-                              <span className="duplicate-tag" title="Potential duplicate student entry detected">
-                                ⚠️ {isDuplicateId ? 'Duplicate ID' : 'Duplicate Name'}
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-muted font-mono">ID: {item.student_id}</div>
-                        </td>
-                        <td>
-                          <span
-                            className="status-pill"
-                            style={{
-                              backgroundColor: theme.darkBadgeBg,
-                              color: theme.darkBadgeText,
-                              border: `1px solid ${theme.darkBadgeBorder}`,
-                              fontWeight: '700'
-                            }}
-                          >
-                            {theme.icon} {theme.name}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="section-pill">{item.program_section}</div>
-                          <div className="year-tag">{item.year_level || '1st Year'}</div>
-                        </td>
-                        <td>
-                          <span
-                            onClick={() => onTogglePayment(item.ticket_code)}
-                            style={{ cursor: 'pointer' }}
-                            title="Click to toggle payment status"
-                            className={`status-pill ${item.payment_status === 'paid' ? 'status-paid' : 'status-unpaid'}`}
-                          >
-                            {item.payment_status === 'paid' ? '💳 Paid & Verified' : '⏳ Unpaid'}
-                          </span>
-                        </td>
-                        
-                        {/* Day 1 Check-In Column */}
-                        <td style={{ textAlign: 'center' }}>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleDay(item.ticket_code, 'day1')}
-                            className={`gate-checkin-btn ${isDay1 ? 'attended' : 'absent'}`}
-                            title="Click to toggle Day 1 attendance"
-                          >
-                            {isDay1 ? `✅ In (${item.day1_time || '08:14 AM'})` : '❌ Absent'}
-                          </button>
-                        </td>
-
-                        {/* Day 2 Check-In Column */}
-                        <td style={{ textAlign: 'center' }}>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleDay(item.ticket_code, 'day2')}
-                            className={`gate-checkin-btn ${isDay2 ? 'attended' : 'absent'}`}
-                            title="Click to toggle Day 2 attendance"
-                          >
-                            {isDay2 ? `✅ In (${item.day2_time || '08:45 PM'})` : '❌ Absent'}
-                          </button>
-                        </td>
-
-                        {/* Actions: Verify/Undo + Animated Remove Row Button */}
-                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>
-                            <motion.button
-                              className={`btn-action ${item.payment_status === 'paid' ? 'btn-undo' : 'btn-verify'}`}
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => onTogglePayment(item.ticket_code)}
-                              title={item.payment_status === 'paid' ? 'Revert to unpaid' : 'Mark as paid'}
-                              style={{ minWidth: '76px' }}
-                            >
-                              {item.payment_status === 'paid' ? 'Undo' : 'Verify'}
-                            </motion.button>
-
-                            <motion.button
-                              className="btn-action-delete animated-trash-btn"
-                              whileHover={{ scale: 1.18, rotate: [0, -10, 10, -5, 5, 0], transition: { duration: 0.35 } }}
-                              whileTap={{ scale: 0.88 }}
-                              onClick={() => setAttendeeToDelete(item)}
-                              title="Remove student from masterlist (Delete duplicate)"
-                            >
-                              <motion.span whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 400 }}>
-                                🗑️
+                  return (
+                    <motion.tr
+                      layout
+                      key={item.ticket_code || item.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ type: "spring", stiffness: 450, damping: 30 }}
+                      onClick={() => markTicketAsRead(item.ticket_code)}
+                      className={`${isHighlighted ? 'row-highlight-pulse' : ''} ${isDuplicate ? 'row-duplicate-warn' : ''} ${isChecked ? 'row-selected' : ''}`}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      {/* Row Selection Checkbox */}
+                      <td style={{ textAlign: 'center', width: '38px' }} onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          className="row-checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleSelectTicket(item.ticket_code)}
+                          title={`Select ${item.full_name} for batch deletion`}
+                          style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#EF4444' }}
+                        />
+                      </td>
+                      {/* Dynamic 1-to-N Auto-Increment Sequential Number */}
+                      <td style={{ textAlign: 'center' }}>
+                        <span className="row-seq-badge">#{idx + 1}</span>
+                      </td>
+                      <td>
+                        <span className="ticket-code-pill font-mono">{item.ticket_code}</span>
+                      </td>
+                      <td>
+                        <div className="font-bold text-white text-sm flex items-center gap-2">
+                          <span>{item.full_name}</span>
+                          <AnimatePresence>
+                            {isTicketNew(item) && (
+                              <motion.span
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
+                                className="badge-new-attendee"
+                                title="✨ New Registration (Click row or badge to mark as read)"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  markTicketAsRead(item.ticket_code);
+                                }}
+                              >
+                                ✨ NEW
                               </motion.span>
-                            </motion.button>
-                          </div>
-                        </td>
-                      </motion.tr>
-                    );
-                  })}
-                  {filtered.length === 0 && (
+                            )}
+                          </AnimatePresence>
+                          {isDuplicate && (
+                            <span className="duplicate-tag" title="Potential duplicate student entry detected">
+                              ⚠️ {isDuplicateId ? 'Duplicate ID' : 'Duplicate Name'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted font-mono">ID: {item.student_id}</div>
+                      </td>
+                      <td>
+                        <span
+                          className="status-pill"
+                          style={{
+                            backgroundColor: theme.darkBadgeBg,
+                            color: theme.darkBadgeText,
+                            border: `1px solid ${theme.darkBadgeBorder}`,
+                            fontWeight: '700'
+                          }}
+                        >
+                          {theme.icon} {theme.name}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="section-pill">{item.program_section}</div>
+                        <div className="year-tag">{item.year_level || '1st Year'}</div>
+                      </td>
+                      <td>
+                        <span
+                          onClick={() => onTogglePayment(item.ticket_code)}
+                          style={{ cursor: 'pointer' }}
+                          title="Click to toggle payment status"
+                          className={`status-pill ${item.payment_status === 'paid' ? 'status-paid' : 'status-unpaid'}`}
+                        >
+                          {item.payment_status === 'paid' ? '💳 Paid & Verified' : '⏳ Unpaid'}
+                        </span>
+                      </td>
+
+                      {/* Date Registered Column */}
+                      <td>
+                        <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#F1F5F9' }}>
+                          {formatDateOnly(item.created_at)}
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontFamily: 'monospace' }}>
+                          {formatTimeOnly(item.created_at)} PST
+                        </div>
+                      </td>
+                      
+                      {/* Day 1 Check-In Column */}
+                      <td style={{ textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleDay(item.ticket_code, 'day1')}
+                          className={`gate-checkin-btn ${isDay1 ? 'attended' : 'absent'}`}
+                          title="Click to toggle Day 1 attendance"
+                        >
+                          {isDay1 ? `✅ In (${item.day1_time || '08:14 AM'})` : '❌ Absent'}
+                        </button>
+                      </td>
+
+                      {/* Day 2 Check-In Column */}
+                      <td style={{ textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleDay(item.ticket_code, 'day2')}
+                          className={`gate-checkin-btn ${isDay2 ? 'attended' : 'absent'}`}
+                          title="Click to toggle Day 2 attendance"
+                        >
+                          {isDay2 ? `✅ In (${item.day2_time || '08:45 PM'})` : '❌ Absent'}
+                        </button>
+                      </td>
+
+                      {/* Actions: Verify/Undo + Animated Remove Row Button */}
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }}>
+                          <motion.button
+                            className={`btn-action ${item.payment_status === 'paid' ? 'btn-undo' : 'btn-verify'}`}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => onTogglePayment(item.ticket_code)}
+                            title={item.payment_status === 'paid' ? 'Revert to unpaid' : 'Mark as paid'}
+                            style={{ minWidth: '70px' }}
+                          >
+                            {item.payment_status === 'paid' ? 'Undo' : 'Verify'}
+                          </motion.button>
+
+                          <motion.button
+                            className="btn-action-delete animated-trash-btn"
+                            whileHover={{ scale: 1.18, rotate: [0, -10, 10, -5, 5, 0], transition: { duration: 0.35 } }}
+                            whileTap={{ scale: 0.88 }}
+                            onClick={() => setAttendeeToDelete(item)}
+                            title="Remove student from masterlist"
+                          >
+                            <motion.span whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 400 }}>
+                              🗑️
+                            </motion.span>
+                          </motion.button>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  );
+                })}
+                {filtered.length === 0 && (
                   <tr>
-                    <td colSpan="9" className="text-center py-8 text-muted">
+                    <td colSpan="11" className="text-center py-8 text-muted" style={{ textAlign: 'center', padding: '32px', color: '#94A3B8' }}>
                       {showDuplicatesOnly 
                         ? '🎉 No duplicate attendees found in the dataset!'
                         : 'No attendees match the current search / filter criteria.'}
@@ -2360,16 +2503,16 @@ export default function AdminDashboard({
                   boxShadow: '0 4px 14px rgba(0,0,0,0.3)'
                 }}>
                   <img 
-                    src="/logo.png" 
-                    alt="URSP SSG Seal" 
+                    src="/urs_logo.png" 
+                    alt="URS University Main Seal" 
                     style={{
                       width: '60px',
                       height: '60px',
                       borderRadius: '50%',
-                      border: '2.5px solid #FFD100',
+                      border: '2.5px solid #38BDF8',
                       background: '#FFF',
                       objectFit: 'contain',
-                      boxShadow: '0 0 15px rgba(255, 209, 0, 0.65)',
+                      boxShadow: '0 0 15px rgba(56, 189, 248, 0.65)',
                       flexShrink: 0
                     }}
                   />
@@ -2385,16 +2528,16 @@ export default function AdminDashboard({
                     </p>
                   </div>
                   <img 
-                    src="/urs_logo.png" 
-                    alt="URS University Main Seal" 
+                    src="/logo.png" 
+                    alt="URSP SSG Seal" 
                     style={{
                       width: '60px',
                       height: '60px',
                       borderRadius: '50%',
-                      border: '2.5px solid #38BDF8',
+                      border: '2.5px solid #FFD100',
                       background: '#FFF',
                       objectFit: 'contain',
-                      boxShadow: '0 0 15px rgba(56, 189, 248, 0.65)',
+                      boxShadow: '0 0 15px rgba(255, 209, 0, 0.65)',
                       flexShrink: 0
                     }}
                   />
@@ -2914,8 +3057,8 @@ export default function AdminDashboard({
         </div>
       )}
 
-      {/* Complete Database Flush Confirmation Modal */}
-      {showFlushModal && (
+      {/* Complete Batch Deletion Password Confirmation Modal */}
+      {showBatchDeleteModal && (
         <div
           style={{
             position: 'fixed',
@@ -2928,7 +3071,7 @@ export default function AdminDashboard({
             zIndex: 99999,
             padding: '20px'
           }}
-          onClick={() => setShowFlushModal(false)}
+          onClick={() => setShowBatchDeleteModal(false)}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -2946,56 +3089,87 @@ export default function AdminDashboard({
               color: '#FFFFFF'
             }}
           >
-            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-              <div style={{ fontSize: '3.2rem', marginBottom: '10px' }}>🧹</div>
-              <h3 style={{ fontSize: '1.4rem', fontWeight: '900', color: '#F87171', margin: 0 }}>
-                Flush Entire Masterlist?
+            <div style={{ textAlign: 'center', marginBottom: '18px' }}>
+              <div style={{ fontSize: '3rem', marginBottom: '8px' }}>🗑️</div>
+              <h3 style={{ fontSize: '1.3rem', fontWeight: '900', color: '#F87171', margin: 0 }}>
+                Confirm Batch Deletion
               </h3>
-              <p style={{ fontSize: '0.88rem', color: '#CBD5E1', marginTop: '10px', lineHeight: '1.5' }}>
-                Are you sure you want to permanently clear all <strong style={{ color: '#FBBF24' }}>{tickets.length} attendee records</strong>? This will wipe all test registrations and reset the system database to a clean slate.
+              <p style={{ fontSize: '0.88rem', color: '#CBD5E1', marginTop: '8px', lineHeight: '1.5' }}>
+                You have selected <strong style={{ color: '#F87171' }}>{selectedTicketCodes.size} attendee record(s)</strong> for permanent removal. Enter the Admin Password to confirm.
               </p>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-              <motion.button
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.96 }}
-                style={{
-                  padding: '12px 20px',
-                  borderRadius: '12px',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  color: '#FFFFFF',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
-                onClick={() => setShowFlushModal(false)}
-              >
-                Cancel
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.04, backgroundColor: '#DC2626' }}
-                whileTap={{ scale: 0.96 }}
-                style={{
-                  padding: '12px 24px',
-                  borderRadius: '12px',
-                  background: '#EF4444',
-                  border: 'none',
-                  color: '#FFFFFF',
-                  fontWeight: '900',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 14px rgba(239, 68, 68, 0.5)'
-                }}
-                onClick={() => {
-                  if (onFlushDatabase) {
-                    onFlushDatabase();
-                  }
-                  setShowFlushModal(false);
-                }}
-              >
-                🧹 Yes, Flush Database
-              </motion.button>
-            </div>
+            <form onSubmit={handleConfirmBatchDelete}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '0.78rem', color: '#94A3B8', fontWeight: '700', marginBottom: '6px', textAlign: 'left' }}>
+                  🔑 Admin Password ({adminSession?.name || 'Admin'}):
+                </label>
+                <input
+                  type="password"
+                  autoFocus
+                  required
+                  value={batchDeletePassword}
+                  onChange={(e) => { setBatchDeletePassword(e.target.value); setBatchDeleteError(''); }}
+                  placeholder="Enter Admin Password"
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: '1.5px solid rgba(239, 68, 68, 0.5)',
+                    background: 'rgba(0, 0, 0, 0.5)',
+                    color: '#FFFFFF',
+                    fontSize: '14px',
+                    letterSpacing: '1px',
+                    outline: 'none',
+                    textAlign: 'center',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                {batchDeleteError && (
+                  <div style={{ color: '#FCA5A5', fontSize: '0.78rem', marginTop: '6px', fontWeight: '700', textAlign: 'center' }}>
+                    {batchDeleteError}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                <motion.button
+                  type="button"
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
+                  style={{
+                    padding: '12px 20px',
+                    borderRadius: '12px',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    color: '#FFFFFF',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setShowBatchDeleteModal(false)}
+                >
+                  Cancel
+                </motion.button>
+                <motion.button
+                  type="submit"
+                  disabled={isDeletingBatch}
+                  whileHover={{ scale: 1.04, backgroundColor: '#DC2626' }}
+                  whileTap={{ scale: 0.96 }}
+                  style={{
+                    padding: '12px 24px',
+                    borderRadius: '12px',
+                    background: '#EF4444',
+                    border: 'none',
+                    color: '#FFFFFF',
+                    fontWeight: '900',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(239, 68, 68, 0.5)'
+                  }}
+                >
+                  {isDeletingBatch ? '⏳ Deleting...' : `🗑️ Delete Selected (${selectedTicketCodes.size})`}
+                </motion.button>
+              </div>
+            </form>
           </motion.div>
         </div>
       )}
@@ -3062,22 +3236,9 @@ export default function AdminDashboard({
         {/* Dual Logos on Right Side */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div style={{ textAlign: 'right', fontSize: '0.72rem', color: '#94A3B8', fontWeight: '600' }}>
-            <div>URSP SSG &bull; URS Main</div>
+            <div>URS Main &bull; URSP SSG</div>
             <div style={{ color: '#FFD100' }}>Official Ticketing Suite</div>
           </div>
-          <img 
-            src="/logo.png" 
-            alt="URSP SSG Seal" 
-            style={{
-              width: '46px',
-              height: '46px',
-              borderRadius: '50%',
-              border: '2px solid #FFD100',
-              background: '#FFF',
-              objectFit: 'contain',
-              boxShadow: '0 0 12px rgba(255, 209, 0, 0.6)'
-            }}
-          />
           <img 
             src="/urs_logo.png" 
             alt="URS University Main Seal" 
@@ -3089,6 +3250,19 @@ export default function AdminDashboard({
               background: '#FFF',
               objectFit: 'contain',
               boxShadow: '0 0 12px rgba(56, 189, 248, 0.6)'
+            }}
+          />
+          <img 
+            src="/logo.png" 
+            alt="URSP SSG Seal" 
+            style={{
+              width: '46px',
+              height: '46px',
+              borderRadius: '50%',
+              border: '2px solid #FFD100',
+              background: '#FFF',
+              objectFit: 'contain',
+              boxShadow: '0 0 12px rgba(255, 209, 0, 0.6)'
             }}
           />
         </div>

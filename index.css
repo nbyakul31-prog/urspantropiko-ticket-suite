@@ -2001,6 +2001,32 @@ img { max-width: 100%; height: auto; }
   background: linear-gradient(180deg, #FFD100, #FF6B35);
 }
 
+/* ==========================================================================
+   BATCH SELECTION & ROW CHECKBOX STYLES (NO SELECT-ALL CONSTRAINT)
+   ========================================================================== */
+.row-checkbox {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: #EF4444;
+  vertical-align: middle;
+  transition: transform 0.15s ease;
+}
+
+.row-checkbox:hover {
+  transform: scale(1.15);
+}
+
+tr.row-selected {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border-left: 3px solid #EF4444 !important;
+}
+
+tr.row-selected td {
+  border-color: rgba(239, 68, 68, 0.25) !important;
+}
+
+
 
 
 

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import QRCode from 'qrcode.react';
+import { QRCodeCanvas } from 'qrcode.react';
 import html2canvas from 'html2canvas';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './lib/supabase';
@@ -146,6 +146,9 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
     setLoading(true);
 
     try {
+      if (registrationLocked) {
+        throw new Error('Registration is currently closed by the SSG Admin. Please check back later.');
+      }
       const sanitizedStudentId = sanitizeStudentId(studentId);
       const cleanLastName = sanitizeText(lastName).trim();
       const cleanFirstName = sanitizeText(firstName).trim();
@@ -167,7 +170,7 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
       const cleanYear = sanitizeText(yearLevel);
       const cleanSection = sanitizeText(section);
 
-      const generatedCode = 'TKT-' + Math.floor(10000 + Math.random() * 90000);
+      const generatedCode = 'URS-' + Math.floor(10000 + Math.random() * 90000);
 
       const newAttendee = {
         student_id: sanitizedStudentId,
@@ -232,7 +235,9 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
       const canvas = await html2canvas(badgeRef.current, {
         scale: 3,
         useCORS: true,
-        backgroundColor: null
+        allowTaint: true,
+        backgroundColor: null,
+        logging: false
       });
       const image = canvas.toDataURL('image/png');
       const link = document.createElement('a');
@@ -283,22 +288,38 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
             justifyContent: 'flex-end',
             padding: '16px'
           }}>
-            <motion.img
-              src="/logo.png"
-              alt="URSP SSG Official Logo"
-              className="portal-hero-logo"
-              whileHover={{ scale: 1.1, rotate: [0, -5, 5, 0] }}
-              style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '50%',
-                border: '2.5px solid #FFD100',
-                boxShadow: '0 0 25px rgba(255, 209, 0, 0.85), 0 6px 20px rgba(0, 0, 0, 0.8)',
-                objectFit: 'contain',
-                background: '#FFF',
-                marginBottom: '6px'
-              }}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '6px' }}>
+              <motion.img
+                src="/urs_logo.png"
+                alt="University of Rizal System Main Seal"
+                className="portal-hero-logo"
+                whileHover={{ scale: 1.1, rotate: [0, -5, 5, 0] }}
+                style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '50%',
+                  border: '2.5px solid #38BDF8',
+                  boxShadow: '0 0 25px rgba(56, 189, 248, 0.85), 0 6px 20px rgba(0, 0, 0, 0.8)',
+                  objectFit: 'contain',
+                  background: '#FFF'
+                }}
+              />
+              <motion.img
+                src="/logo.png"
+                alt="URSP SSG Official Logo"
+                className="portal-hero-logo"
+                whileHover={{ scale: 1.1, rotate: [0, 5, -5, 0] }}
+                style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '50%',
+                  border: '2.5px solid #FFD100',
+                  boxShadow: '0 0 25px rgba(255, 209, 0, 0.85), 0 6px 20px rgba(0, 0, 0, 0.8)',
+                  objectFit: 'contain',
+                  background: '#FFF'
+                }}
+              />
+            </div>
             <h1 style={{
               fontFamily: "'Pacifico', cursive",
               fontSize: '24px',
@@ -606,7 +627,7 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
                   boxShadow: '0 8px 25px rgba(0,0,0,0.5)'
                 }}
               >
-                <QRCode value={ticket.ticket_code} size={160} level="H" />
+                <QRCodeCanvas value={ticket.ticket_code} size={170} level="H" includeMargin={true} />
               </motion.div>
 
               <div className="badge-warning-box" style={{
@@ -706,18 +727,6 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
             <img
-              src="/logo.png"
-              alt="URSP SSG Seal"
-              style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: '50%',
-                border: '1.5px solid #FFD100',
-                background: '#FFF',
-                objectFit: 'contain'
-              }}
-            />
-            <img
               src="/urs_logo.png"
               alt="URS Main Seal"
               style={{
@@ -725,6 +734,18 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
                 height: '28px',
                 borderRadius: '50%',
                 border: '1.5px solid #38BDF8',
+                background: '#FFF',
+                objectFit: 'contain'
+              }}
+            />
+            <img
+              src="/logo.png"
+              alt="URSP SSG Seal"
+              style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                border: '1.5px solid #FFD100',
                 background: '#FFF',
                 objectFit: 'contain'
               }}

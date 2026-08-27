@@ -112,7 +112,7 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
     }
   };
 
-  // Resilient Multi-Pattern Ticket Finder (matches exact, TKT- prefix, School ID, URL, or raw digits)
+  // Resilient Multi-Pattern Ticket Finder (matches exact, URS- prefix, School ID, URL, or raw digits)
   const findStudentInDatabase = (rawCode, list) => {
     if (!rawCode || !Array.isArray(list) || list.length === 0) return null;
     const trimmed = String(rawCode).trim();
@@ -126,15 +126,15 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
     match = list.find(t => t.student_id?.trim().toUpperCase() === upper);
     if (match) return match;
 
-    // 3. Extract TKT-XXXXX pattern from URL or string
-    const tktExtract = upper.match(/TKT-?[0-9]+/i);
-    if (tktExtract) {
-      const cleanExtracted = tktExtract[0].replace(/^TKT-?/i, 'TKT-');
-      match = list.find(t => t.ticket_code?.toUpperCase() === cleanExtracted);
+    // 3. Extract URS-XXXXX pattern from URL or string
+    const ursExtract = upper.match(/(?:URS|TKT)-?[0-9]+/i);
+    if (ursExtract) {
+      const cleanExtracted = ursExtract[0].replace(/^(?:URS|TKT)-?/i, 'URS-');
+      match = list.find(t => t.ticket_code?.toUpperCase() === cleanExtracted || t.ticket_code?.toUpperCase() === ursExtract[0].toUpperCase());
       if (match) return match;
     }
 
-    // 4. Digits-only match (e.g. typing '73902' finds 'TKT-73902')
+    // 4. Digits-only match (e.g. typing '73902' finds 'URS-73902')
     const digitsOnly = trimmed.replace(/\D/g, '');
     if (digitsOnly.length >= 4) {
       match = list.find(t => {
@@ -367,13 +367,25 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
           style={{ marginBottom: '14px' }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <img
+                src="/urs_logo.png"
+                alt="URS Main Seal"
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '50%',
+                  border: '2px solid #38BDF8',
+                  background: '#FFF',
+                  objectFit: 'contain'
+                }}
+              />
               <img
                 src="/logo.png"
                 alt="URSP SSG Logo"
                 style={{
-                  width: '42px',
-                  height: '42px',
+                  width: '38px',
+                  height: '38px',
                   borderRadius: '50%',
                   border: '2px solid #FFD100',
                   background: '#FFF',
@@ -561,7 +573,7 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
         >
           <input
             type="text"
-            placeholder="Type ticket code (e.g. TKT-10001)..."
+            placeholder="Type ticket code (e.g. URS-10001)..."
             value={manualCode}
             onChange={(e) => setManualCode(e.target.value)}
             className="manual-input"
@@ -601,52 +613,6 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
             ⚡ Scan
           </motion.button>
         </motion.form>
-
-        {/* Quick Test Demo Buttons */}
-        <motion.div
-          className="demo-buttons-grid"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 10 }}
-          transition={{ delay: 0.5, duration: 0.3 }}
-        >
-          <motion.button
-            type="button"
-            className="btn-demo demo-paid"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => handleScan('TKT-10001')}
-          >
-            🟢 Test Paid (TKT-10001)
-          </motion.button>
-          <motion.button
-            type="button"
-            className="btn-demo demo-unpaid"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => handleScan('TKT-10002')}
-          >
-            🔴 Test Unpaid (TKT-10002)
-          </motion.button>
-          <motion.button
-            type="button"
-            className="btn-demo demo-attended"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => handleScan('TKT-10003')}
-          >
-            🟢 Test Attended (TKT-10003)
-          </motion.button>
-          <motion.button
-            type="button"
-            className="btn-demo demo-unpaid2"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => handleScan('TKT-10004')}
-          >
-            🔴 Test Unpaid (TKT-10004)
-          </motion.button>
-        </motion.div>
 
         {/* Result Alerts */}
         {currentResult && (
