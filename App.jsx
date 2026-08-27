@@ -16,7 +16,7 @@ export const ADMIN_ACCOUNTS = [
     role: 'SSG Executive President',
     badge: '👑 Lead Administrator',
     badgeColor: '#38BDF8',
-    passwords: ['URSP@ADMIN1', 'ADMIN1_2026', '2026', 'URSP@SSG2026!']
+    passwords: ['URSP@Admin2026!Secured', 'URSP@ADMIN1', 'ADMIN1_2026', '2026', 'URSP@SSG2026!']
   },
   {
     id: 'admin2',
@@ -24,7 +24,7 @@ export const ADMIN_ACCOUNTS = [
     role: 'SSG Auditor / Security Chief',
     badge: '🛡️ Security & Integrity',
     badgeColor: '#A855F7',
-    passwords: ['URSP@ADMIN2', 'ADMIN2_2026', '2026', 'URSP@SSG2026!']
+    passwords: ['URSP#Audit9824$Secured', 'URSP@ADMIN2', 'ADMIN2_2026', '2026', 'URSP@SSG2026!']
   }
 ];
 
@@ -1155,24 +1155,6 @@ export default function App() {
                     );
                   })}
                 </div>
-
-                {ENABLE_DEV_ACCESS_HINT && (
-                  <div style={{
-                    background: 'rgba(56, 189, 248, 0.12)',
-                    border: '1px dashed rgba(56, 189, 248, 0.35)',
-                    borderRadius: '8px',
-                    padding: '6px 12px',
-                    fontSize: '11px',
-                    color: '#38BDF8',
-                    marginBottom: '14px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px'
-                  }}>
-                    <span>🔑 <strong>Hint:</strong> Password: <code>2026</code> or <code>URSP@ADMIN1</code> / <code>URSP@ADMIN2</code></span>
-                  </div>
-                )}
 
                 <form onSubmit={handleVerifyPassword} className="security-form">
                   <input
