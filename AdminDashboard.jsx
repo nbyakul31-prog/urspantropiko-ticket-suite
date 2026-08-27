@@ -2185,7 +2185,7 @@ export default function AdminDashboard({
                       display: 'inline-flex',
                       boxShadow: registrationLocked ? '0 0 0 4px rgba(239,68,68,0.6)' : '0 0 0 4px rgba(99,102,241,0.4)'
                     }}>
-                      <QRCode
+                      <QRCodeCanvas
                         value={registrationLocked ? 'REGISTRATION_LOCKED_BY_SSG_ADMIN' : studentRegisterUrl}
                         size={200}
                         level="H"
@@ -2330,7 +2330,7 @@ export default function AdminDashboard({
                   style={{ padding: '28px 32px', display: 'flex', gap: '36px', alignItems: 'flex-start', flexWrap: 'wrap' }}
                 >
                   <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '16px', display: 'inline-flex', boxShadow: '0 0 0 4px rgba(245,158,11,0.4)', flexShrink: 0 }}>
-                    <QRCode value={masterUsherUrl} size={200} level="H" />
+                    <QRCodeCanvas value={masterUsherUrl} size={200} level="H" />
                   </div>
                   <div style={{ flex: 1, minWidth: '220px' }}>
                     <div className="badge-tag" style={{ marginBottom: '12px' }}>MARSHAL DISPATCH PASS</div>
@@ -2362,7 +2362,7 @@ export default function AdminDashboard({
                   style={{ padding: '28px 32px', display: 'flex', gap: '36px', alignItems: 'flex-start', flexWrap: 'wrap' }}
                 >
                   <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '16px', display: 'inline-flex', boxShadow: '0 0 0 4px rgba(16,185,129,0.4)', flexShrink: 0 }}>
-                    <QRCode value={studentRegisterUrl} size={200} level="H" />
+                    <QRCodeCanvas value={studentRegisterUrl} size={200} level="H" />
                   </div>
                   <div style={{ flex: 1, minWidth: '220px' }}>
                     <div className="badge-tag" style={{ marginBottom: '12px' }}>PUBLIC REGISTRATION PASS</div>
@@ -2827,7 +2827,7 @@ export default function AdminDashboard({
 
               {/* High-Contrast Crisp QR Code */}
               <div className="qr-box-large" style={{ background: '#FFFFFF', padding: '16px', borderRadius: '14px', display: 'inline-block', boxShadow: '0 0 30px rgba(255, 209, 0, 0.3)' }}>
-                <QRCode value={studentRegisterUrl} size={230} level="H" includeMargin={true} />
+                <QRCodeCanvas value={studentRegisterUrl} size={230} level="H" includeMargin={true} />
               </div>
 
               <div className="modal-link-box" style={{ marginTop: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
@@ -2962,7 +2962,7 @@ export default function AdminDashboard({
 
               {/* High-Contrast QR Code */}
               <div className="qr-box-large" style={{ background: '#FFFFFF', padding: '16px', borderRadius: '14px', display: 'inline-block', boxShadow: '0 0 30px rgba(56, 189, 248, 0.3)' }}>
-                <QRCode value={masterUsherUrl} size={230} level="H" includeMargin={true} />
+                <QRCodeCanvas value={masterUsherUrl} size={230} level="H" includeMargin={true} />
               </div>
 
               <div className="modal-link-box" style={{ marginTop: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
