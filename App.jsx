@@ -1165,6 +1165,8 @@ export default function App() {
           <StudentPortal
             onTicketGenerated={handleTicketGenerated}
             registrationLocked={registrationLocked}
+            isAdminAuthed={isAdminAuthed}
+            allTickets={tickets}
           />
         )}
         
