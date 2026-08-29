@@ -80,11 +80,17 @@ function normalizeTicket(t) {
 
 function getStoredTickets() {
   try {
+    let delSet = new Set();
+    try {
+      const rawDel = localStorage.getItem('ursp_deleted_codes_v1');
+      if (rawDel) delSet = new Set(JSON.parse(rawDel));
+    } catch (e) {}
+
     let raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        const active = parsed.filter(isRealAttendee).map(normalizeTicket).filter(Boolean);
+        const active = parsed.filter(t => isRealAttendee(t) && !delSet.has(t.ticket_code)).map(normalizeTicket).filter(Boolean);
         if (active.length > 0) return active;
       }
     }
@@ -423,10 +429,18 @@ export default function App() {
 
           const { data, error } = await supabase.from('attendees').select('*').order('created_at', { ascending: false });
           if (!error && Array.isArray(data) && isMounted) {
-            const realOnly = data.filter(isRealAttendee).map(normalizeTicket).filter(Boolean);
-            setTickets(realOnly);
-            saveStoredTickets(realOnly);
-            broadcastCloudUpdate(realOnly);
+            let delSet = new Set();
+            try {
+              const rawDel = localStorage.getItem('ursp_deleted_codes_v1');
+              if (rawDel) delSet = new Set(JSON.parse(rawDel));
+            } catch (e) {}
+
+            const realOnly = data.filter(t => isRealAttendee(t) && !delSet.has(t.ticket_code)).map(normalizeTicket).filter(Boolean);
+            if (realOnly.length > 0) {
+              setTickets(realOnly);
+              saveStoredTickets(realOnly);
+              broadcastCloudUpdate(realOnly);
+            }
           }
         }
       } catch (err) {
@@ -577,9 +591,9 @@ export default function App() {
     };
   }, []);
 
-  const broadcastUpdate = (newTicketsList, ping = null) => {
+  const broadcastUpdate = (newTicketsList, ping = null, deletedCodes = []) => {
     saveStoredTickets(newTicketsList);
-    broadcastCloudUpdate(newTicketsList, ping);
+    broadcastCloudUpdate(newTicketsList, ping, null, deletedCodes);
     if (ping) {
       addLivePing(ping);
     }
@@ -776,11 +790,19 @@ export default function App() {
     } catch (e) {}
   };
 
-  // 5. Delete Single Attendee Handler (No password required, instant execution)
+  // 5. Delete Single Attendee Handler (No password required, instant execution with Tombstone Registry)
   const handleDeleteAttendee = async (code) => {
     if (!code) return;
     let targetToDelete = null;
     let nextList = [];
+
+    // 1. Record in local tombstones registry so it can NEVER resurrect
+    try {
+      const rawDel = localStorage.getItem('ursp_deleted_codes_v1');
+      const parsedDel = rawDel ? JSON.parse(rawDel) : [];
+      const updatedDel = Array.from(new Set([...parsedDel, code]));
+      localStorage.setItem('ursp_deleted_codes_v1', JSON.stringify(updatedDel));
+    } catch (e) {}
 
     setTickets(prev => {
       targetToDelete = prev.find(t => t.ticket_code === code);
@@ -799,7 +821,7 @@ export default function App() {
       department: targetToDelete?.department
     };
 
-    broadcastUpdate(nextList, ping);
+    broadcastUpdate(nextList, ping, [code]);
 
     addLogEntry({
       type: 'deletion',
@@ -816,6 +838,9 @@ export default function App() {
       if (supabase && typeof supabase.from === 'function') {
         supabase.from('attendees').delete().eq('ticket_code', code).then(() => {}).catch(() => {});
         supabase.from('tickets').delete().eq('ticket_code', code).then(() => {}).catch(() => {});
+        if (targetToDelete && targetToDelete.student_id) {
+          supabase.from('attendees').delete().eq('student_id', targetToDelete.student_id).then(() => {}).catch(() => {});
+        }
       }
     } catch (dbErr) {}
 
@@ -843,6 +868,14 @@ export default function App() {
       return { success: false, error: `❌ Incorrect password for ${activeAccount.label}. Batch deletion aborted.` };
     }
 
+    // 1. Record in local tombstones registry so they can NEVER resurrect
+    try {
+      const rawDel = localStorage.getItem('ursp_deleted_codes_v1');
+      const parsedDel = rawDel ? JSON.parse(rawDel) : [];
+      const updatedDel = Array.from(new Set([...parsedDel, ...codesToDelete]));
+      localStorage.setItem('ursp_deleted_codes_v1', JSON.stringify(updatedDel));
+    } catch (e) {}
+
     const deleteSet = new Set(codesToDelete);
     let nextList = [];
     setTickets(prev => {
@@ -856,7 +889,7 @@ export default function App() {
       title: `🗑️ ${codesToDelete.length} ATTENDEES DELETED`,
       message: `Batch of ${codesToDelete.length} student record(s) deleted by ${adminSession?.name || 'Admin'}.`
     };
-    broadcastUpdate(nextList, ping);
+    broadcastUpdate(nextList, ping, codesToDelete);
 
     addLogEntry({
       type: 'deletion',
@@ -870,7 +903,7 @@ export default function App() {
         supabase.from('attendees').delete().in('ticket_code', codesToDelete).then(() => {}).catch(() => {});
         supabase.from('tickets').delete().in('ticket_code', codesToDelete).then(() => {}).catch(() => {});
       }
-    } catch (e) {}
+    } catch (dbErr) {}
 
     return { success: true, count: codesToDelete.length };
   };

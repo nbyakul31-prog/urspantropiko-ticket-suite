@@ -36,6 +36,7 @@ let memoryState = {
   activityLog: [],
   registrationLocked: false,
   latestPing: null,
+  deletedCodes: [],
   initialized: false
 };
 
@@ -43,14 +44,16 @@ function getState() {
   if (!memoryState.initialized) {
     const disk = readDiskCache();
     if (disk && Array.isArray(disk.attendees)) {
-      memoryState.attendees = disk.attendees.filter(isRealAttendee);
+      memoryState.deletedCodes = Array.isArray(disk.deletedCodes) ? disk.deletedCodes : [];
+      memoryState.attendees = disk.attendees.filter(t => isRealAttendee(t) && !memoryState.deletedCodes.includes(t.ticket_code));
       memoryState.activityLog = disk.activityLog || [];
       memoryState.registrationLocked = !!disk.registrationLocked;
       memoryState.latestPing = disk.latestPing || null;
       memoryState.initialized = true;
     }
   }
-  memoryState.attendees = (memoryState.attendees || []).filter(isRealAttendee);
+  const delSet = new Set(memoryState.deletedCodes || []);
+  memoryState.attendees = (memoryState.attendees || []).filter(t => isRealAttendee(t) && !delSet.has(t.ticket_code));
   return memoryState;
 }
 
@@ -122,18 +125,25 @@ export default function handler(req, res) {
           s.attendees = [];
           s.activityLog = [];
           s.latestPing = null;
+          s.deletedCodes = [];
         }
 
-        // Handle full ticket list sync (authoritative from client)
+        // Handle deleted ticket codes (tombstones)
+        if (data && Array.isArray(data.deletedTicketCodes) && data.deletedTicketCodes.length > 0) {
+          s.deletedCodes = Array.from(new Set([...(s.deletedCodes || []), ...data.deletedTicketCodes]));
+        }
+        const delSet = new Set(s.deletedCodes || []);
+
+        // Handle full ticket list sync (authoritative from client, filtered by tombstones)
         if (Array.isArray(data)) {
-          s.attendees = data.filter(isRealAttendee);
+          s.attendees = data.filter(t => isRealAttendee(t) && !delSet.has(t.ticket_code));
         } else if (data && data.tickets && Array.isArray(data.tickets)) {
-          s.attendees = data.tickets.filter(isRealAttendee);
-        } else if (data && data.attendee && data.attendee.ticket_code && isRealAttendee(data.attendee)) {
+          s.attendees = data.tickets.filter(t => isRealAttendee(t) && !delSet.has(t.ticket_code));
+        } else if (data && data.attendee && data.attendee.ticket_code && isRealAttendee(data.attendee) && !delSet.has(data.attendee.ticket_code)) {
           s.attendees = [
             data.attendee,
             ...s.attendees.filter(a => a && a.ticket_code !== data.attendee.ticket_code && a.student_id !== data.attendee.student_id)
-          ].filter(isRealAttendee);
+          ].filter(t => isRealAttendee(t) && !delSet.has(t.ticket_code));
         }
 
         // Handle activity log entry addition
@@ -177,7 +187,8 @@ export default function handler(req, res) {
         data: state.attendees,
         activityLog: state.activityLog,
         registrationLocked: state.registrationLocked,
-        latestPing: state.latestPing
+        latestPing: state.latestPing,
+        deletedCodes: state.deletedCodes || []
       });
     } catch (e) {
       return res.status(400).json({ error: 'Invalid JSON body' });
@@ -191,6 +202,7 @@ export default function handler(req, res) {
     data: state.attendees,
     activityLog: state.activityLog,
     registrationLocked: state.registrationLocked,
-    latestPing: state.latestPing
+    latestPing: state.latestPing,
+    deletedCodes: state.deletedCodes || []
   });
 }
