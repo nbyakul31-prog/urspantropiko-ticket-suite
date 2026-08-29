@@ -50,7 +50,25 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [qrImageSrc, setQrImageSrc] = useState('');
   const badgeRef = useRef(null);
+
+  // Automatically render QR to PNG data URL for bulletproof html2canvas capture
+  useEffect(() => {
+    if (ticket && ticket.ticket_code) {
+      const timer = setTimeout(() => {
+        const cvs = document.getElementById('hidden-ticket-qr-canvas');
+        if (cvs) {
+          try {
+            setQrImageSrc(cvs.toDataURL('image/png'));
+          } catch (e) {}
+        }
+      }, 60);
+      return () => clearTimeout(timer);
+    } else {
+      setQrImageSrc('');
+    }
+  }, [ticket]);
 
   // Show locked registration gate screen
   if (registrationLocked) {
@@ -241,7 +259,8 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
   const handleDownloadBadge = async () => {
     if (!badgeRef.current || !ticket) return;
     try {
-      const originalCanvas = badgeRef.current.querySelector('canvas');
+      const cvs = document.getElementById('hidden-ticket-qr-canvas') || badgeRef.current.querySelector('canvas');
+      const dataUrl = cvs ? cvs.toDataURL('image/png') : qrImageSrc;
 
       const canvas = await html2canvas(badgeRef.current, {
         scale: 3,
@@ -250,14 +269,9 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
         backgroundColor: '#0F172A',
         logging: false,
         onclone: (clonedDoc) => {
-          const clonedCanvas = clonedDoc.querySelector('.badge-qr-container canvas');
-          if (originalCanvas && clonedCanvas) {
-            clonedCanvas.width = originalCanvas.width;
-            clonedCanvas.height = originalCanvas.height;
-            const ctx = clonedCanvas.getContext('2d');
-            if (ctx) {
-              ctx.drawImage(originalCanvas, 0, 0);
-            }
+          const container = clonedDoc.querySelector('.badge-qr-container');
+          if (container && dataUrl) {
+            container.innerHTML = `<img src="${dataUrl}" style="width:180px;height:180px;display:block;margin:0 auto;border-radius:4px;" />`;
           }
         }
       });
@@ -636,27 +650,48 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
                 ID: <b>{ticket.student_id}</b> &bull; Section: <b>{ticket.program_section}</b>
               </div>
 
+              {/* Offscreen high-res QR canvas generator */}
+              <div style={{ position: 'fixed', left: '-9999px', top: '-9999px', opacity: 0, pointerEvents: 'none' }}>
+                <QRCodeCanvas
+                  id="hidden-ticket-qr-canvas"
+                  value={ticket.ticket_code}
+                  size={300}
+                  level="H"
+                  includeMargin={true}
+                  fgColor="#000000"
+                  bgColor="#FFFFFF"
+                />
+              </div>
+
               <motion.div
                 className="badge-qr-container"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 style={{
                   background: '#FFF',
-                  padding: '16px',
+                  padding: '14px',
                   borderRadius: '16px',
                   display: 'inline-flex',
                   margin: '16px auto',
                   boxShadow: '0 8px 25px rgba(0,0,0,0.5)'
                 }}
               >
-                <QRCodeCanvas
-                  value={ticket.ticket_code}
-                  size={180}
-                  level="H"
-                  includeMargin={true}
-                  fgColor="#000000"
-                  bgColor="#FFFFFF"
-                />
+                {qrImageSrc ? (
+                  <img
+                    src={qrImageSrc}
+                    alt={`QR Code for ${ticket.ticket_code}`}
+                    style={{ width: '180px', height: '180px', display: 'block', borderRadius: '4px' }}
+                  />
+                ) : (
+                  <QRCodeCanvas
+                    value={ticket.ticket_code}
+                    size={180}
+                    level="H"
+                    includeMargin={true}
+                    fgColor="#000000"
+                    bgColor="#FFFFFF"
+                  />
+                )}
               </motion.div>
 
               <div className="badge-warning-box" style={{
