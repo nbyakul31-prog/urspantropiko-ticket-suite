@@ -257,31 +257,171 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
   };
 
   const handleDownloadBadge = async () => {
-    if (!badgeRef.current || !ticket) return;
+    if (!ticket) return;
     try {
-      const cvs = document.getElementById('hidden-ticket-qr-canvas') || badgeRef.current.querySelector('canvas');
-      const dataUrl = cvs ? cvs.toDataURL('image/png') : qrImageSrc;
+      // 1. Get the QR canvas from DOM
+      const qrCanvas = document.getElementById('hidden-ticket-qr-canvas') || badgeRef.current?.querySelector('canvas');
+      if (!qrCanvas) {
+        alert('QR code is still initializing. Please tap Download again.');
+        return;
+      }
 
-      const canvas = await html2canvas(badgeRef.current, {
-        scale: 3,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#0F172A',
-        logging: false,
-        onclone: (clonedDoc) => {
-          const container = clonedDoc.querySelector('.badge-qr-container');
-          if (container && dataUrl) {
-            container.innerHTML = `<img src="${dataUrl}" style="width:180px;height:180px;display:block;margin:0 auto;border-radius:4px;" />`;
-          }
-        }
-      });
-      const image = canvas.toDataURL('image/png');
+      // 2. Create ultra-sharp high-resolution canvas (800x1120px)
+      const width = 800;
+      const height = 1120;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+
+      // Outer background
+      ctx.fillStyle = '#060B18';
+      ctx.fillRect(0, 0, width, height);
+
+      // Inner card box with golden glowing border
+      const pad = 28;
+      ctx.strokeStyle = '#FFD100';
+      ctx.lineWidth = 4;
+      ctx.fillStyle = '#0F172A';
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(pad, pad, width - pad * 2, height - pad * 2, 28);
+      } else {
+        ctx.rect(pad, pad, width - pad * 2, height - pad * 2);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      // Top Tag Pill: OFFICIAL STUDENT ENTRANCE PASS
+      const tagW = 340;
+      const tagH = 40;
+      const tagX = (width - tagW) / 2;
+      const tagY = 65;
+      const tagGrad = ctx.createLinearGradient(tagX, tagY, tagX + tagW, tagY);
+      tagGrad.addColorStop(0, '#F97316');
+      tagGrad.addColorStop(1, '#EAB308');
+      ctx.fillStyle = tagGrad;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(tagX, tagY, tagW, tagH, 20);
+      } else {
+        ctx.rect(tagX, tagY, tagW, tagH);
+      }
+      ctx.fill();
+
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 15px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('OFFICIAL STUDENT ENTRANCE PASS', width / 2, tagY + tagH / 2);
+
+      // Event Title: URSPANTROPIKO 2026
+      ctx.fillStyle = '#FFD100';
+      ctx.font = '900 38px sans-serif';
+      ctx.fillText('URSPANTROPIKO 2026', width / 2, 160);
+
+      // Department & Year Level Pill
+      const deptText = `💼 ${ticket.department} (${ticket.year_level || '1st Year'})`;
+      ctx.font = 'bold 16px sans-serif';
+      const deptMetrics = ctx.measureText(deptText);
+      const deptPillW = Math.max(deptMetrics.width + 44, 280);
+      const deptPillH = 38;
+      const deptPillX = (width - deptPillW) / 2;
+      const deptPillY = 200;
+
+      ctx.fillStyle = '#D1FAE5';
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(deptPillX, deptPillY, deptPillW, deptPillH, 19);
+      } else {
+        ctx.rect(deptPillX, deptPillY, deptPillW, deptPillH);
+      }
+      ctx.fill();
+      ctx.strokeStyle = '#10B981';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = '#065F46';
+      ctx.fillText(deptText, width / 2, deptPillY + deptPillH / 2);
+
+      // Ticket Code (Cyan)
+      ctx.fillStyle = '#38BDF8';
+      ctx.font = '900 52px monospace, sans-serif';
+      ctx.fillText(ticket.ticket_code, width / 2, 305);
+
+      // Student Full Name
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '800 30px sans-serif';
+      ctx.fillText(ticket.full_name, width / 2, 360);
+
+      // Student ID & Section Meta
+      ctx.fillStyle = '#94A3B8';
+      ctx.font = '600 19px sans-serif';
+      ctx.fillText(`ID: ${ticket.student_id}   •   Section: ${ticket.program_section}`, width / 2, 405);
+
+      // QR Code Container Box (White Rounded Rect)
+      const qrBoxSize = 360;
+      const qrBoxX = (width - qrBoxSize) / 2;
+      const qrBoxY = 450;
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 24);
+      } else {
+        ctx.rect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize);
+      }
+      ctx.fill();
+
+      // Draw the QR Code image directly from the live QR Canvas
+      const qrPad = 22;
+      ctx.drawImage(
+        qrCanvas,
+        qrBoxX + qrPad,
+        qrBoxY + qrPad,
+        qrBoxSize - qrPad * 2,
+        qrBoxSize - qrPad * 2
+      );
+
+      // Bottom Notice Box
+      const noticW = width - 120;
+      const noticH = 90;
+      const noticX = 60;
+      const noticY = 855;
+
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.12)';
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(noticX, noticY, noticW, noticH, 16);
+      } else {
+        ctx.rect(noticX, noticY, noticW, noticH);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#FEF3C7';
+      ctx.font = 'bold 15px sans-serif';
+      ctx.fillText('⚠️ Payment Notice: Submit payment to your Class President / Treasurer.', width / 2, noticY + 34);
+      ctx.font = '14px sans-serif';
+      ctx.fillStyle = '#CBD5E1';
+      ctx.fillText('Gate scanner unlocks admission automatically once verified.', width / 2, noticY + 60);
+
+      // Bottom Footer Watermark
+      ctx.fillStyle = '#64748B';
+      ctx.font = '13px sans-serif';
+      ctx.fillText('⚡ Powered by SSG • University of Rizal System Pililla Campus', width / 2, 1005);
+
+      // Download Image as High-Quality PNG
+      const image = canvas.toDataURL('image/png', 1.0);
       const link = document.createElement('a');
       link.href = image;
       link.download = `URSPANTROPIKO_2026_TICKET_${ticket.ticket_code}.png`;
       link.click();
     } catch (err) {
-      alert('Could not download image badge. Please take a screenshot of your ticket!');
+      console.error('Direct badge canvas generation failed:', err);
+      alert('Could not download image pass. Please take a screenshot of your ticket!');
     }
   };
 
