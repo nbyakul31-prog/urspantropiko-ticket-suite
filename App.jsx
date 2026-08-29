@@ -411,18 +411,11 @@ export default function App() {
       try {
         if (supabase && typeof supabase.from === 'function') {
           const { data, error } = await supabase.from('attendees').select('*').order('created_at', { ascending: false });
-          if (!error && Array.isArray(data) && data.length > 0 && isMounted) {
-            setTickets(prev => {
-              const remoteMap = new Map();
-              data.filter(t => !deletedSet.has(t.ticket_code)).forEach(t => remoteMap.set(t.ticket_code, normalizeTicket(t)));
-              prev.filter(t => !deletedSet.has(t.ticket_code)).forEach(t => {
-                if (!remoteMap.has(t.ticket_code)) {
-                  remoteMap.set(t.ticket_code, t);
-                }
-              });
-              const merged = Array.from(remoteMap.values());
-              saveStoredTickets(merged);
-              return merged;
+          if (!error && Array.isArray(data) && isMounted) {
+            setTickets(() => {
+              const active = data.filter(t => !deletedSet.has(t.ticket_code)).map(normalizeTicket);
+              saveStoredTickets(active);
+              return active;
             });
           }
         }
@@ -460,9 +453,15 @@ export default function App() {
           })
           .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'attendees' }, payload => {
             if (payload.old && isMounted) {
-              recordDeletedCode(payload.old.ticket_code);
+              if (payload.old.ticket_code) {
+                recordDeletedCode(payload.old.ticket_code);
+              }
               setTickets(prev => {
-                const next = prev.filter(t => t.ticket_code !== payload.old.ticket_code && t.id !== payload.old.id);
+                const next = prev.filter(t => {
+                  if (payload.old.ticket_code && t.ticket_code === payload.old.ticket_code) return false;
+                  if (payload.old.id && t.id === payload.old.id) return false;
+                  return true;
+                });
                 saveStoredTickets(next);
                 return next;
               });
@@ -486,29 +485,17 @@ export default function App() {
     const cleanupCloudSync = listenToCloudUpdates((cloudTickets, ping) => {
       const deletedSet = getDeletedCodes();
       if (Array.isArray(cloudTickets) && isMounted) {
-        setTickets(prev => {
-          const map = new Map();
-          // 1. Add cloud tickets (ignoring deleted attendees)
-          cloudTickets.filter(t => !deletedSet.has(t.ticket_code)).forEach(t => {
-            map.set(t.ticket_code, normalizeTicket(t));
-          });
-          // 2. Preserve any local attendees not marked as deleted
-          prev.filter(t => !deletedSet.has(t.ticket_code)).forEach(t => {
-            if (!map.has(t.ticket_code)) {
-              map.set(t.ticket_code, t);
-            }
-          });
-
-          const merged = Array.from(map.values());
-          saveStoredTickets(merged);
-
-          const prevHash = prev.map(t => `${t.ticket_code}:${t.payment_status}:${t.day1_status}:${t.day2_status}`).join('|');
-          const nextHash = merged.map(t => `${t.ticket_code}:${t.payment_status}:${t.day1_status}:${t.day2_status}`).join('|');
-          if (prevHash === nextHash) return prev;
-          return merged;
+        setTickets(() => {
+          const active = cloudTickets.filter(t => !deletedSet.has(t.ticket_code)).map(normalizeTicket);
+          saveStoredTickets(active);
+          return active;
         });
       }
       if (ping && isMounted) {
+        if (ping.type === 'deletion' && ping.ticket_code) {
+          recordDeletedCode(ping.ticket_code);
+          setTickets(prev => prev.filter(t => t.ticket_code !== ping.ticket_code));
+        }
         addLivePing(ping);
       }
     }, (locked) => {
@@ -760,27 +747,34 @@ export default function App() {
   // 5. Delete Single Attendee Handler
   const handleDeleteAttendee = async (code) => {
     recordDeletedCode(code);
-    let deleted = null;
-    setTickets(prev => {
-      deleted = prev.find(t => t.ticket_code === code);
-      const nextList = prev.filter(t => t.ticket_code !== code);
-      const ping = deleted ? {
-        type: 'deletion',
-        title: '🗑️ ATTENDEE REMOVED',
-        message: `${deleted.full_name} (${deleted.student_id} • ${deleted.ticket_code}) was removed from the masterlist by ${adminSession?.name || 'Admin'}.`,
-        ticket_code: code,
-        department: deleted.department
-      } : null;
-      broadcastUpdate(nextList, ping);
-      return nextList;
-    });
+    const targetToDelete = tickets.find(t => t.ticket_code === code);
+    const nextList = tickets.filter(t => t.ticket_code !== code);
+    setTickets(nextList);
+    saveStoredTickets(nextList);
+
+    const ping = targetToDelete ? {
+      type: 'deletion',
+      title: '🗑️ ATTENDEE REMOVED',
+      message: `${targetToDelete.full_name} (${targetToDelete.student_id} • ${targetToDelete.ticket_code}) was removed from the masterlist by ${adminSession?.name || 'Admin'}.`,
+      ticket_code: code,
+      department: targetToDelete.department
+    } : {
+      type: 'deletion',
+      title: '🗑️ ATTENDEE REMOVED',
+      message: `Attendee ${code} was removed from the masterlist by ${adminSession?.name || 'Admin'}.`,
+      ticket_code: code
+    };
+
+    broadcastUpdate(nextList, ping);
 
     addLogEntry({
       type: 'deletion',
       title: '🗑️ ATTENDEE REMOVED',
-      message: `${deleted?.full_name || code} (${deleted?.student_id || ''} • ${code}) removed by ${adminSession?.name || 'Admin'}.`,
+      message: targetToDelete
+        ? `${targetToDelete.full_name} (${targetToDelete.student_id} • ${targetToDelete.ticket_code}) removed by ${adminSession?.name || 'Admin'}.`
+        : `Attendee ${code} removed by ${adminSession?.name || 'Admin'}.`,
       ticket_code: code,
-      department: deleted?.department
+      department: targetToDelete?.department
     });
 
     // Real-Time Supabase Database Row Deletion
@@ -793,7 +787,7 @@ export default function App() {
       console.warn('Supabase DB row deletion sync:', dbErr);
     }
 
-    return deleted;
+    return targetToDelete;
   };
 
   // 6. Batch Delete Selected Attendees Handler with Admin Password Protection
