@@ -525,6 +525,17 @@ export default function App() {
         try { localStorage.setItem('ursp_activity_log_v1', JSON.stringify(updated)); } catch (e) {}
         return updated;
       });
+    }, (incomingDeletedCodes) => {
+      // Real-time deletion blacklist sync across all devices
+      if (Array.isArray(incomingDeletedCodes) && incomingDeletedCodes.length > 0 && isMounted) {
+        incomingDeletedCodes.forEach(c => recordDeletedCode(c));
+        const delSet = new Set(incomingDeletedCodes);
+        setTickets(prev => {
+          const next = prev.filter(t => !delSet.has(t.ticket_code));
+          saveStoredTickets(next);
+          return next;
+        });
+      }
     });
 
     const handleStorage = (e) => {
@@ -551,9 +562,9 @@ export default function App() {
     };
   }, []);
 
-  const broadcastUpdate = (newTicketsList, ping = null) => {
+  const broadcastUpdate = (newTicketsList, ping = null, deletedCodes = null) => {
     saveStoredTickets(newTicketsList);
-    broadcastCloudUpdate(newTicketsList, ping);
+    broadcastCloudUpdate(newTicketsList, ping, null, deletedCodes);
     if (ping) {
       addLivePing(ping);
     }
@@ -765,7 +776,7 @@ export default function App() {
       ticket_code: code
     };
 
-    broadcastUpdate(nextList, ping);
+    broadcastUpdate(nextList, ping, [code]);
 
     addLogEntry({
       type: 'deletion',
@@ -819,7 +830,7 @@ export default function App() {
         title: `🗑️ ${codesToDelete.length} ATTENDEES DELETED`,
         message: `Batch of ${codesToDelete.length} student record(s) deleted by ${adminSession?.name || 'Admin'}.`
       };
-      broadcastUpdate(nextList, ping);
+      broadcastUpdate(nextList, ping, codesToDelete);
       return nextList;
     });
 

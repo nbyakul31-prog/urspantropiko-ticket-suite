@@ -1,8 +1,8 @@
 // Serverless In-Memory Cloud Sync State for URSPantropiko Ticket Suite
-// NOTE: No hardcoded seed data — Supabase is the single source of truth.
-// This API is purely an ephemeral relay for cross-device real-time sync.
+// Synchronizes Attendees, Deletion Blacklist, Activity Logs, and Registration Lock in Real-Time
 
 let cachedAttendees = [];
+let cachedDeletedCodes = new Set();
 let cachedRegistrationLocked = false;
 let cachedActivityLog = [];
 
@@ -42,14 +42,25 @@ export default function handler(req, res) {
     try {
       const data = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 
-      // Handle ticket/attendee sync
+      // Handle recorded deletions (Blacklist)
+      if (data && Array.isArray(data.deletedCodes)) {
+        data.deletedCodes.forEach(code => cachedDeletedCodes.add(code));
+      }
+      if (data && data.deleteTicketCode) {
+        cachedDeletedCodes.add(data.deleteTicketCode);
+      }
+
+      // Handle ticket list sync
       if (Array.isArray(data)) {
-        cachedAttendees = data;
+        cachedAttendees = data.filter(t => !cachedDeletedCodes.has(t.ticket_code));
       } else if (data && data.tickets && Array.isArray(data.tickets)) {
-        cachedAttendees = data.tickets;
+        cachedAttendees = data.tickets.filter(t => !cachedDeletedCodes.has(t.ticket_code));
       } else if (data && data.attendee) {
-        if (!cachedAttendees) cachedAttendees = [];
-        cachedAttendees = [data.attendee, ...cachedAttendees.filter(a => a.ticket_code !== data.attendee.ticket_code && a.student_id !== data.attendee.student_id)];
+        cachedDeletedCodes.delete(data.attendee.ticket_code);
+        cachedAttendees = [
+          data.attendee,
+          ...cachedAttendees.filter(a => a.ticket_code !== data.attendee.ticket_code && a.student_id !== data.attendee.student_id)
+        ];
       }
 
       // Handle activity log entry addition
@@ -79,8 +90,9 @@ export default function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        count: (cachedAttendees || []).length,
+        count: cachedAttendees.length,
         data: cachedAttendees,
+        deletedCodes: Array.from(cachedDeletedCodes),
         activityLog: cachedActivityLog,
         registrationLocked: cachedRegistrationLocked
       });
@@ -93,6 +105,7 @@ export default function handler(req, res) {
   return res.status(200).json({
     success: true,
     data: cachedAttendees || [],
+    deletedCodes: Array.from(cachedDeletedCodes),
     activityLog: cachedActivityLog || [],
     registrationLocked: cachedRegistrationLocked
   });

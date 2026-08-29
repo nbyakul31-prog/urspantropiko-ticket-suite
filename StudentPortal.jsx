@@ -211,6 +211,15 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
           department: newAttendee.department
         };
 
+        try {
+          const rawDel = localStorage.getItem('ursp_masterlist_deleted_v5');
+          if (rawDel) {
+            const delSet = new Set(JSON.parse(rawDel));
+            delSet.delete(newAttendee.ticket_code);
+            localStorage.setItem('ursp_masterlist_deleted_v5', JSON.stringify(Array.from(delSet)));
+          }
+        } catch(e) {}
+
         // Real-Time Push to all connected PC Admins & Devices
         broadcastCloudUpdate(currentList, registrationPing);
       } catch (e) {
