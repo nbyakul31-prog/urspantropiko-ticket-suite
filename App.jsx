@@ -482,20 +482,9 @@ export default function App() {
     // 3. Real-Time Cloud Listener for Cross-Device Sync (Phone <-> PC Admin)
     const cleanupCloudSync = listenToCloudUpdates((cloudTickets, ping) => {
       if (Array.isArray(cloudTickets) && isMounted) {
-        if (cloudTickets.length > 0) {
-          const active = cloudTickets.filter(t => t && t.ticket_code).map(normalizeTicket).filter(Boolean);
-          setTickets(active);
-          saveStoredTickets(active);
-        } else {
-          // If cloud is empty, check if this device holds local data to seed the cloud
-          const currentLocal = getStoredTickets();
-          if (currentLocal.length > 0) {
-            broadcastCloudUpdate(currentLocal);
-          } else {
-            setTickets([]);
-            saveStoredTickets([]);
-          }
-        }
+        const active = cloudTickets.filter(t => t && t.ticket_code).map(normalizeTicket).filter(Boolean);
+        setTickets(active);
+        saveStoredTickets(active);
       }
       if (ping && isMounted) {
         addLivePing(ping);
