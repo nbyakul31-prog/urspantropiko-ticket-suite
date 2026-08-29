@@ -1,13 +1,58 @@
-// Serverless In-Memory Cloud Sync State for URSPantropiko Ticket Suite
-// Ephemeral cross-device relay for Attendees, Activity Logs, and Registration Lock State
+// Serverless In-Memory & /tmp Disk-Cached Cloud Sync State for URSPantropiko Ticket Suite
+import fs from 'fs';
+import path from 'path';
 
-let cachedAttendees = null;
-let cachedRegistrationLocked = false;
-let cachedActivityLog = [];
-
+const DB_FILE = path.join('/tmp', 'ursp_sync_db.json');
 const MAX_LOG_ENTRIES = 1000;
 
-function appendLogEntry(entry) {
+function readDiskCache() {
+  try {
+    if (fs.existsSync(DB_FILE)) {
+      const raw = fs.readFileSync(DB_FILE, 'utf8');
+      if (raw) {
+        return JSON.parse(raw);
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+
+function writeDiskCache(state) {
+  try {
+    fs.writeFileSync(DB_FILE, JSON.stringify(state));
+  } catch (e) {}
+}
+
+// In-memory process cache fallback
+let memoryState = {
+  attendees: [],
+  activityLog: [],
+  registrationLocked: false,
+  initialized: false
+};
+
+function getState() {
+  if (!memoryState.initialized) {
+    const disk = readDiskCache();
+    if (disk && Array.isArray(disk.attendees)) {
+      memoryState.attendees = disk.attendees;
+      memoryState.activityLog = disk.activityLog || [];
+      memoryState.registrationLocked = !!disk.registrationLocked;
+      memoryState.initialized = true;
+    }
+  }
+  return memoryState;
+}
+
+function persistState(updater) {
+  const current = getState();
+  updater(current);
+  current.initialized = true;
+  writeDiskCache(current);
+  return current;
+}
+
+function appendLogEntry(state, entry) {
   if (!entry || !entry.type) return;
   const logItem = {
     id: entry.id || `log_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
@@ -21,9 +66,9 @@ function appendLogEntry(entry) {
     timestamp: entry.timestamp || new Date().toISOString(),
     server_time: new Date().toISOString()
   };
-  cachedActivityLog.unshift(logItem);
-  if (cachedActivityLog.length > MAX_LOG_ENTRIES) {
-    cachedActivityLog = cachedActivityLog.slice(0, MAX_LOG_ENTRIES);
+  state.activityLog.unshift(logItem);
+  if (state.activityLog.length > MAX_LOG_ENTRIES) {
+    state.activityLog = state.activityLog.slice(0, MAX_LOG_ENTRIES);
   }
   return logItem;
 }
@@ -37,54 +82,57 @@ export default function handler(req, res) {
     return res.status(200).end();
   }
 
+  const state = getState();
+
   if (req.method === 'POST' || req.method === 'PUT') {
     try {
       const data = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 
-      // Handle full ticket list sync (authoritative from client)
-      if (Array.isArray(data)) {
-        cachedAttendees = data.filter(t => t && t.ticket_code);
-      } else if (data && data.tickets && Array.isArray(data.tickets)) {
-        cachedAttendees = data.tickets.filter(t => t && t.ticket_code);
-      } else if (data && data.attendee && data.attendee.ticket_code) {
-        if (!cachedAttendees) cachedAttendees = [];
-        cachedAttendees = [
-          data.attendee,
-          ...cachedAttendees.filter(a => a && a.ticket_code !== data.attendee.ticket_code && a.student_id !== data.attendee.student_id)
-        ];
-      }
+      persistState(s => {
+        // Handle full ticket list sync (authoritative from client)
+        if (Array.isArray(data)) {
+          s.attendees = data.filter(t => t && t.ticket_code);
+        } else if (data && data.tickets && Array.isArray(data.tickets)) {
+          s.attendees = data.tickets.filter(t => t && t.ticket_code);
+        } else if (data && data.attendee && data.attendee.ticket_code) {
+          s.attendees = [
+            data.attendee,
+            ...s.attendees.filter(a => a && a.ticket_code !== data.attendee.ticket_code && a.student_id !== data.attendee.student_id)
+          ];
+        }
 
-      // Handle activity log entry addition
-      if (data && data.logEntry) {
-        appendLogEntry(data.logEntry);
-      }
+        // Handle activity log entry addition
+        if (data && data.logEntry) {
+          appendLogEntry(s, data.logEntry);
+        }
 
-      // Handle activity log deletions (Gmail-like delete selected)
-      if (data && Array.isArray(data.deleteLogIds) && data.deleteLogIds.length > 0) {
-        const idSet = new Set(data.deleteLogIds);
-        cachedActivityLog = cachedActivityLog.filter(l => l && !idSet.has(l.id));
-      }
+        // Handle activity log deletions (Gmail-like delete selected)
+        if (data && Array.isArray(data.deleteLogIds) && data.deleteLogIds.length > 0) {
+          const idSet = new Set(data.deleteLogIds);
+          s.activityLog = s.activityLog.filter(l => l && !idSet.has(l.id));
+        }
 
-      // Handle clear all logs
-      if (data && data.clearLogs === true) {
-        cachedActivityLog = [];
-      }
+        // Handle clear all logs
+        if (data && data.clearLogs === true) {
+          s.activityLog = [];
+        }
 
-      // Handle bulk log sync
-      if (data && Array.isArray(data.activityLog)) {
-        data.activityLog.forEach(entry => appendLogEntry(entry));
-      }
+        // Handle bulk log sync
+        if (data && Array.isArray(data.activityLog)) {
+          data.activityLog.forEach(entry => appendLogEntry(s, entry));
+        }
 
-      if (data && typeof data.registrationLocked === 'boolean') {
-        cachedRegistrationLocked = data.registrationLocked;
-      }
+        if (data && typeof data.registrationLocked === 'boolean') {
+          s.registrationLocked = data.registrationLocked;
+        }
+      });
 
       return res.status(200).json({
         success: true,
-        count: (cachedAttendees || []).length,
-        data: cachedAttendees || [],
-        activityLog: cachedActivityLog,
-        registrationLocked: cachedRegistrationLocked
+        count: state.attendees.length,
+        data: state.attendees,
+        activityLog: state.activityLog,
+        registrationLocked: state.registrationLocked
       });
     } catch (e) {
       return res.status(400).json({ error: 'Invalid JSON body' });
@@ -94,8 +142,9 @@ export default function handler(req, res) {
   // GET: Return current sync state
   return res.status(200).json({
     success: true,
-    data: cachedAttendees || [],
-    activityLog: cachedActivityLog || [],
-    registrationLocked: cachedRegistrationLocked
+    count: state.attendees.length,
+    data: state.attendees,
+    activityLog: state.activityLog,
+    registrationLocked: state.registrationLocked
   });
 }
