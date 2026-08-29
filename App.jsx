@@ -401,16 +401,18 @@ export default function App() {
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Query Supabase Remote DB upon loading (Syncs offline registrations seamlessly)
+    // 1. Query Supabase Remote DB upon loading (Syncs registrations from Supabase into Masterlist)
     async function syncFromSupabase() {
       try {
         if (supabase && typeof supabase.from === 'function') {
           const { data, error } = await supabase.from('attendees').select('*').order('created_at', { ascending: false });
-          if (!error && Array.isArray(data) && isMounted) {
+          if (!error && Array.isArray(data) && data.length > 0 && isMounted) {
             const active = data.filter(t => t && t.ticket_code).map(normalizeTicket).filter(Boolean);
-            setTickets(active);
-            saveStoredTickets(active);
-            broadcastCloudUpdate(active);
+            if (active.length > 0) {
+              setTickets(active);
+              saveStoredTickets(active);
+              broadcastCloudUpdate(active);
+            }
           }
         }
       } catch (err) {
@@ -428,20 +430,14 @@ export default function App() {
           .channel('public_attendees_live_feed')
           .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendees' }, payload => {
             if (payload.new && isMounted) {
-              const newRecord = normalizeTicket(payload.new);
-              if (!newRecord) return;
+              const newTicket = normalizeTicket(payload.new);
+              if (!newTicket) return;
               setTickets(prev => {
-                if (prev.some(t => t.ticket_code === newRecord.ticket_code)) return prev;
-                const next = [newRecord, ...prev];
+                const exists = prev.some(t => t.ticket_code === newTicket.ticket_code || t.student_id === newTicket.student_id);
+                if (exists) return prev;
+                const next = [newTicket, ...prev];
                 saveStoredTickets(next);
                 return next;
-              });
-              addLivePing({
-                type: 'registration',
-                title: '🎉 STUDENT REGISTERED',
-                message: `${payload.new.full_name} (${payload.new.student_id} • ${payload.new.ticket_code}) was registered to the masterlist.`,
-                ticket_code: payload.new.ticket_code,
-                department: payload.new.department
               });
             }
           })
@@ -487,11 +483,10 @@ export default function App() {
           setTickets(active);
           saveStoredTickets(active);
         } else {
-          // Cold start protection: Do NOT wipe local attendees if cloud returns empty
+          // If cloud is cold, check if local storage has tickets to re-seed
           const currentLocal = getStoredTickets();
           if (currentLocal && currentLocal.length > 0) {
             setTickets(currentLocal);
-            // Push local attendees back to seed the cold serverless container
             broadcastCloudUpdate(currentLocal);
           }
         }
@@ -510,12 +505,8 @@ export default function App() {
       setActivityLog(prev => {
         let updated = prev;
         if (logUpdate.action === 'sync_all' && Array.isArray(logUpdate.logs)) {
-          // Merge server logs and local logs seamlessly by unique ID without flickering
-          const serverLogIds = new Set(logUpdate.logs.map(l => l.id));
-          const localOnlyLogs = prev.filter(l => !serverLogIds.has(l.id));
-          const merged = [...localOnlyLogs, ...logUpdate.logs];
-          merged.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
-          updated = merged.slice(0, 1000);
+          // Direct sync: Server is the source of truth for active logs across devices
+          updated = logUpdate.logs;
         } else if (logUpdate.action === 'add' && logUpdate.logEntry) {
           if (!prev.some(l => l.id === logUpdate.logEntry.id)) {
             updated = [logUpdate.logEntry, ...prev].slice(0, 1000);
