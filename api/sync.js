@@ -28,6 +28,7 @@ let memoryState = {
   attendees: [],
   activityLog: [],
   registrationLocked: false,
+  latestPing: null,
   initialized: false
 };
 
@@ -38,6 +39,7 @@ function getState() {
       memoryState.attendees = disk.attendees;
       memoryState.activityLog = disk.activityLog || [];
       memoryState.registrationLocked = !!disk.registrationLocked;
+      memoryState.latestPing = disk.latestPing || null;
       memoryState.initialized = true;
     }
   }
@@ -140,6 +142,15 @@ export default function handler(req, res) {
           data.activityLog.forEach(entry => appendLogEntry(s, entry));
         }
 
+        // Handle live event ping (for cross-device popup toasts)
+        if (data && data.ping) {
+          s.latestPing = {
+            ...data.ping,
+            senderId: data.senderId || null,
+            timestamp: Date.now()
+          };
+        }
+
         if (data && typeof data.registrationLocked === 'boolean') {
           s.registrationLocked = data.registrationLocked;
         }
@@ -150,7 +161,8 @@ export default function handler(req, res) {
         count: state.attendees.length,
         data: state.attendees,
         activityLog: state.activityLog,
-        registrationLocked: state.registrationLocked
+        registrationLocked: state.registrationLocked,
+        latestPing: state.latestPing
       });
     } catch (e) {
       return res.status(400).json({ error: 'Invalid JSON body' });
@@ -163,6 +175,7 @@ export default function handler(req, res) {
     count: state.attendees.length,
     data: state.attendees,
     activityLog: state.activityLog,
-    registrationLocked: state.registrationLocked
+    registrationLocked: state.registrationLocked,
+    latestPing: state.latestPing
   });
 }
