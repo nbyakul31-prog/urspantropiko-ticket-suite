@@ -773,13 +773,22 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
                       onClick={() => handleSelectCollege(col.name)}
                       className={`portal-college-card ${isSelected ? 'selected' : ''}`}
                       style={{
-                        borderColor: isSelected ? col.color : 'rgba(255, 255, 255, 0.1)',
-                        boxShadow: isSelected ? `0 0 20px ${col.color}60` : 'none'
+                        background: isSelected ? col.color : 'rgba(15, 23, 42, 0.75)',
+                        border: `1.5px solid ${isSelected ? col.color : 'rgba(255, 255, 255, 0.12)'}`,
+                        boxShadow: isSelected ? `0 0 20px ${col.color}60` : 'none',
+                        color: isSelected ? '#FFFFFF' : '#94A3B8',
+                        padding: '10px 6px',
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '4px'
                       }}
                     >
-                      <div className="portal-college-icon">{col.icon}</div>
-                      <div className="portal-college-name">{col.name}</div>
-                      <div className="portal-college-short" style={{ color: isSelected ? '#FFF' : col.color }}>{col.short}</div>
+                      <div style={{ fontSize: '1.25rem' }}>{col.icon}</div>
+                      <div style={{ fontSize: '0.72rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.2' }}>{col.name}</div>
+                      <div style={{ fontSize: '0.8rem', fontWeight: '900', color: isSelected ? '#FFFFFF' : col.color }}>{col.short}</div>
                     </motion.button>
                   );
                 })}

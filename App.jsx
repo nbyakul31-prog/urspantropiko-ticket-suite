@@ -1145,36 +1145,7 @@ export default function App() {
             </nav>
           )}
 
-          {/* STUDENT VIEW (When unauthenticated): Officer Login button */}
-          {!isAdminAuthed && route === 'student' && (
-            <div className="flex items-center gap-3">
-              <button
-                className="btn-lock-session"
-                onClick={() => {
-                  setPendingRoute('admin');
-                  setPinError('');
-                  setPinInput('');
-                  setAuthStep(1);
-                  setShowPinModal(true);
-                }}
-                style={{
-                  background: 'rgba(255, 209, 0, 0.12)',
-                  border: '1.5px solid #FFD100',
-                  color: '#FFD100',
-                  fontWeight: '800',
-                  fontSize: '12px',
-                  padding: '8px 14px',
-                  borderRadius: '10px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  cursor: 'pointer'
-                }}
-              >
-                🔒 SSG Officer Login
-              </button>
-            </div>
-          )}
+
 
           {/* USHER VIEW (When unauthenticated): Simple exit button */}
           {!isAdminAuthed && route === 'usher' && (

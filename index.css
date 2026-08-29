@@ -461,9 +461,28 @@ img { max-width: 100%; height: auto; }
 .portal-form { display: flex; flex-direction: column; gap: 4px; }
 .portal-form-group { margin-bottom: 14px; }
 .portal-label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin-bottom: 6px; }
-.portal-input, .portal-select { width: 100%; background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.12); color: var(--text-white); padding: 14px 16px; border-radius: var(--radius-sm); font-size: 15px; font-family: 'Plus Jakarta Sans', sans-serif; transition: border-color 0.2s ease; }
-.portal-input:focus, .portal-select:focus { outline: none; border-color: var(--sunset-orange); box-shadow: 0 0 12px rgba(255, 107, 53, 0.3); }
-.portal-select option { background: #0F172A; color: #fff; }
+.portal-input, .portal-select, .portal-form-input, .portal-form-select { 
+  width: 100%; 
+  background: rgba(0, 0, 0, 0.55) !important; 
+  border: 1.5px solid rgba(255, 255, 255, 0.15) !important; 
+  color: #FFFFFF !important; 
+  padding: 12px 14px !important; 
+  border-radius: 10px !important; 
+  font-size: 14px !important; 
+  font-family: 'Plus Jakarta Sans', sans-serif !important; 
+  transition: all 0.2s ease !important; 
+  box-sizing: border-box !important;
+}
+.portal-input:focus, .portal-select:focus, .portal-form-input:focus, .portal-form-select:focus { 
+  outline: none !important; 
+  border-color: var(--sunset-orange) !important; 
+  box-shadow: 0 0 15px rgba(255, 107, 53, 0.4) !important; 
+  background: rgba(0, 0, 0, 0.75) !important;
+}
+.portal-select option, .portal-form-select option { background: #0F172A !important; color: #FFF !important; }
+.portal-college-grid { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 8px !important; }
+.portal-college-card { background: rgba(15, 23, 42, 0.75) !important; border: 1.5px solid rgba(255, 255, 255, 0.12) !important; color: #94A3B8 !important; padding: 10px 6px !important; border-radius: 12px !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 4px !important; cursor: pointer !important; transition: all 0.2s ease !important; }
+.portal-college-card.selected { border-color: #FFD100 !important; box-shadow: 0 0 20px rgba(255, 209, 0, 0.4) !important; color: #FFF !important; }
 .portal-form-row { display: flex; gap: 12px; }
 .portal-btn-primary { width: 100%; background: linear-gradient(135deg, var(--sunset-orange), var(--sun-yellow)); color: #000; font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 800; border: none; padding: 16px; border-radius: var(--radius-sm); cursor: pointer; box-shadow: 0 8px 25px rgba(255, 107, 53, 0.45); transition: all 0.25s ease; margin-top: 8px; }
 .portal-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 35px rgba(255, 107, 53, 0.6); }
