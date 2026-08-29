@@ -38,7 +38,13 @@ const COLLEGES_DATA = [
   }
 ];
 
-export default function StudentPortal({ onTicketGenerated, registrationLocked = false }) {
+export default function StudentPortal({
+  onTicketGenerated,
+  registrationLocked = false,
+  isAdminAuthed = false,
+  allTickets = []
+}) {
+  const [portalTab, setPortalTab] = useState('register'); // 'register' | 'retrieve'
   const [studentId, setStudentId] = useState('');
   const [lastName, setLastName] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -49,10 +55,15 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Retrieve Search State
+  const [lookupQuery, setLookupQuery] = useState('');
+  const [lookupError, setLookupError] = useState('');
+
   const badgeRef = useRef(null);
 
   // Show locked registration gate screen
-  if (registrationLocked) {
+  if (registrationLocked && !isAdminAuthed) {
     return (
       <div style={{
         minHeight: '70vh',
@@ -145,7 +156,7 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
     setLoading(true);
 
     try {
-      if (registrationLocked) {
+      if (registrationLocked && !isAdminAuthed) {
         throw new Error('Registration is currently closed by the SSG Admin. Please check back later.');
       }
       const sanitizedStudentId = sanitizeStudentId(studentId);
@@ -225,6 +236,49 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
       setError(err.message || 'An error occurred while generating your ticket.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Student Pass Lookup Handler
+  const handleLookupPass = (e) => {
+    if (e) e.preventDefault();
+    setLookupError('');
+    const q = (lookupQuery || '').trim().toLowerCase();
+    if (!q) {
+      setLookupError('Please enter your Student ID or Full Name.');
+      return;
+    }
+
+    const masterList = Array.isArray(allTickets) && allTickets.length > 0
+      ? allTickets
+      : (() => {
+          try {
+            const raw = localStorage.getItem('ursp_masterlist_attendees_v5');
+            return raw ? JSON.parse(raw) : [];
+          } catch (e) { return []; }
+        })();
+
+    const digitsOnly = q.replace(/\D/g, '');
+
+    const found = masterList.find(t => {
+      if (!t) return false;
+      const tktCode = (t.ticket_code || '').toLowerCase();
+      const sId = (t.student_id || '').toLowerCase();
+      const name = (t.full_name || '').toLowerCase();
+      const sIdDigits = (t.student_id || '').replace(/\D/g, '');
+
+      return (
+        tktCode === q ||
+        sId === q ||
+        name.includes(q) ||
+        (digitsOnly.length >= 4 && sIdDigits === digitsOnly)
+      );
+    });
+
+    if (found) {
+      setTicket(found);
+    } else {
+      setLookupError(`No registration found matching "${lookupQuery}". Please check your Student ID or register a new pass.`);
     }
   };
 
@@ -520,6 +574,57 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
           </div>
         </div>
 
+        {/* Mode Switcher Tabs: Register Pass vs Retrieve Pass */}
+        {!ticket && (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '8px',
+            background: 'rgba(0,0,0,0.45)',
+            padding: '5px',
+            borderRadius: '12px',
+            border: '1px solid rgba(255,255,255,0.1)',
+            marginBottom: '16px'
+          }}>
+            <button
+              type="button"
+              onClick={() => { setPortalTab('register'); setError(null); }}
+              style={{
+                background: portalTab === 'register' ? 'linear-gradient(135deg, #FF6B35 0%, #F59E0B 100%)' : 'transparent',
+                color: portalTab === 'register' ? '#000' : '#94A3B8',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '9px 12px',
+                fontWeight: '900',
+                fontSize: '12.5px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: portalTab === 'register' ? '0 4px 15px rgba(255, 107, 53, 0.4)' : 'none'
+              }}
+            >
+              📝 Register Entrance Pass
+            </button>
+            <button
+              type="button"
+              onClick={() => { setPortalTab('retrieve'); setError(null); setLookupError(''); }}
+              style={{
+                background: portalTab === 'retrieve' ? 'linear-gradient(135deg, #38BDF8 0%, #0284C7 100%)' : 'transparent',
+                color: portalTab === 'retrieve' ? '#FFF' : '#94A3B8',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '9px 12px',
+                fontWeight: '900',
+                fontSize: '12.5px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: portalTab === 'retrieve' ? '0 4px 15px rgba(56, 189, 248, 0.4)' : 'none'
+              }}
+            >
+              🔍 Retrieve / View My Pass
+            </button>
+          </div>
+        )}
+
         {/* View Mode: PASS DISPLAY */}
         {ticket ? (
           <motion.div
@@ -650,12 +755,91 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                📝 Register Another Student
+                {isAdminAuthed ? '➕ Register Next Walk-In Student' : '📝 Register Another Student / Search Pass'}
               </motion.button>
             </motion.div>
           </motion.div>
+        ) : portalTab === 'retrieve' ? (
+          /* TAB 2: RETRIEVE PASS VIEW */
+          <motion.form
+            onSubmit={handleLookupPass}
+            className="portal-form"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+          >
+            <div style={{
+              background: 'rgba(56, 189, 248, 0.1)',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              borderRadius: '10px',
+              padding: '10px 14px',
+              color: '#BAE6FD',
+              fontSize: '12px',
+              lineHeight: '1.5'
+            }}>
+              💡 <strong>Forgot to screenshot your QR code?</strong> Enter your Student ID Number or Full Name below to retrieve your official pass instantly.
+            </div>
+
+            {lookupError && (
+              <motion.div
+                className="portal-alert-error"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                style={{
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid #EF4444',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  color: '#FCA5A5',
+                  fontSize: '13px',
+                  fontWeight: '600'
+                }}
+              >
+                ⚠️ {lookupError}
+              </motion.div>
+            )}
+
+            <div className="portal-form-group">
+              <label className="portal-form-label">
+                <span>ENTER YOUR STUDENT ID OR FULL NAME</span>
+                <span className="label-required">*</span>
+              </label>
+              <div className="portal-input-wrapper">
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 24-1725 or Britania, Luigi"
+                  className="portal-form-input"
+                  value={lookupQuery}
+                  onChange={(e) => setLookupQuery(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <motion.button
+              type="submit"
+              className="portal-btn-primary portal-btn-glow"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              style={{
+                background: 'linear-gradient(135deg, #38BDF8 0%, #0284C7 100%)',
+                color: '#FFF',
+                fontWeight: '900',
+                padding: '14px',
+                borderRadius: '12px',
+                border: 'none',
+                fontSize: '0.95rem',
+                cursor: 'pointer',
+                boxShadow: '0 8px 25px rgba(56, 189, 248, 0.4)',
+                marginTop: '4px'
+              }}
+            >
+              🔍 Look Up & View My Entrance Pass
+            </motion.button>
+          </motion.form>
         ) : (
-          /* REGISTRATION FORM VIEW */
+          /* TAB 1: REGISTRATION FORM VIEW */
           <motion.form
             onSubmit={handleGenerateTicket}
             className="portal-form"
