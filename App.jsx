@@ -29,12 +29,22 @@ export const ADMIN_ACCOUNTS = [
   }
 ];
 
-const STORAGE_KEY = 'ursp_masterlist_attendees_v5';
+const STORAGE_KEY = 'ursp_masterlist_attendees_v6';
 
-// Clear any stale local deletion blacklists from previous builds
+// Purge all legacy storage keys and mock dummy data from older builds
 try {
-  localStorage.removeItem('ursp_masterlist_deleted_v5');
-  localStorage.removeItem('ursp_masterlist_deleted_v4');
+  [
+    'ursp_masterlist_attendees_v5',
+    'ursp_masterlist_attendees_v4',
+    'ursp_masterlist_attendees_v3',
+    'ursp_masterlist_attendees_v2',
+    'ursp_masterlist_attendees_v1',
+    'cachedEventTickets',
+    'ursp_masterlist_deleted_v5',
+    'ursp_masterlist_deleted_v4'
+  ].forEach(k => {
+    localStorage.removeItem(k);
+  });
 } catch (e) {}
 
 // Encrypted Secret Token for Secure Admin URL Access (prevents spoofing via raw ?view=admin)
@@ -43,8 +53,15 @@ export const SECURE_ADMIN_HASH = 'urs2026_sec_9f8a3c42e1d7';
 // No hardcoded seed data — Supabase is the single source of truth.
 export const DEFAULT_CLEAN_ATTENDEES = [];
 
+function isRealAttendee(t) {
+  if (!t || typeof t !== 'object' || !t.ticket_code) return false;
+  const code = String(t.ticket_code).toUpperCase();
+  if (code.startsWith('TKT-') || code.startsWith('MOCK-') || code.startsWith('DEMO-')) return false;
+  return true;
+}
+
 function normalizeTicket(t) {
-  if (!t || typeof t !== 'object') return null;
+  if (!t || typeof t !== 'object' || !isRealAttendee(t)) return null;
   return {
     ...t,
     ticket_code: t.ticket_code || '',
@@ -61,58 +78,13 @@ function normalizeTicket(t) {
   };
 }
 
-function mergeTicketRecords(localList = [], remoteList = []) {
-  const map = new Map();
-
-  // 1. Index remote list
-  (remoteList || []).forEach(t => {
-    const norm = normalizeTicket(t);
-    if (norm && norm.ticket_code) map.set(norm.ticket_code, norm);
-  });
-
-  // 2. Merge local list (preserving most advanced status)
-  (localList || []).forEach(t => {
-    const localNorm = normalizeTicket(t);
-    if (!localNorm || !localNorm.ticket_code) return;
-
-    if (!map.has(localNorm.ticket_code)) {
-      map.set(localNorm.ticket_code, localNorm);
-    } else {
-      const existing = map.get(localNorm.ticket_code);
-      const isPaid = localNorm.payment_status === 'paid' || existing.payment_status === 'paid';
-      const isDay1 = localNorm.day1_status === 'attended' || existing.day1_status === 'attended';
-      const isDay2 = localNorm.day2_status === 'attended' || existing.day2_status === 'attended';
-
-      map.set(localNorm.ticket_code, {
-        ...existing,
-        ...localNorm,
-        payment_status: isPaid ? 'paid' : (localNorm.payment_status || existing.payment_status || 'unpaid'),
-        day1_status: isDay1 ? 'attended' : 'not_attended',
-        day1_time: (isDay1 ? (localNorm.day1_time || existing.day1_time || '08:15 AM') : null),
-        day2_status: isDay2 ? 'attended' : 'not_attended',
-        day2_time: (isDay2 ? (localNorm.day2_time || existing.day2_time || '08:15 AM') : null),
-        attendance_status: (isDay1 || isDay2) ? 'attended' : 'not_attended'
-      });
-    }
-  });
-
-  return Array.from(map.values());
-}
-
 function getStoredTickets() {
   try {
     let raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      raw = localStorage.getItem('ursp_masterlist_attendees_v4');
-      if (raw) {
-        localStorage.setItem(STORAGE_KEY, raw);
-        localStorage.removeItem('ursp_masterlist_attendees_v4');
-      }
-    }
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        const active = parsed.filter(t => t && t.ticket_code).map(normalizeTicket).filter(Boolean);
+        const active = parsed.filter(isRealAttendee).map(normalizeTicket).filter(Boolean);
         if (active.length > 0) return active;
       }
     }
@@ -443,14 +415,18 @@ export default function App() {
     async function syncFromSupabase() {
       try {
         if (supabase && typeof supabase.from === 'function') {
+          // Clean out legacy mock tickets starting with TKT- from Supabase DB
+          try {
+            supabase.from('attendees').delete().like('ticket_code', 'TKT-%').then(() => {}).catch(() => {});
+            supabase.from('tickets').delete().like('ticket_code', 'TKT-%').then(() => {}).catch(() => {});
+          } catch (e) {}
+
           const { data, error } = await supabase.from('attendees').select('*').order('created_at', { ascending: false });
-          if (!error && Array.isArray(data) && data.length > 0 && isMounted) {
-            const active = data.filter(t => t && t.ticket_code).map(normalizeTicket).filter(Boolean);
-            if (active.length > 0) {
-              setTickets(active);
-              saveStoredTickets(active);
-              broadcastCloudUpdate(active);
-            }
+          if (!error && Array.isArray(data) && isMounted) {
+            const realOnly = data.filter(isRealAttendee).map(normalizeTicket).filter(Boolean);
+            setTickets(realOnly);
+            saveStoredTickets(realOnly);
+            broadcastCloudUpdate(realOnly);
           }
         }
       } catch (err) {

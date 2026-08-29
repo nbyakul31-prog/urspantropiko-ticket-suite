@@ -5,6 +5,13 @@ import path from 'path';
 const DB_FILE = path.join('/tmp', 'ursp_sync_db.json');
 const MAX_LOG_ENTRIES = 1000;
 
+function isRealAttendee(t) {
+  if (!t || typeof t !== 'object' || !t.ticket_code) return false;
+  const code = String(t.ticket_code).toUpperCase();
+  if (code.startsWith('TKT-') || code.startsWith('MOCK-') || code.startsWith('DEMO-')) return false;
+  return true;
+}
+
 function readDiskCache() {
   try {
     if (fs.existsSync(DB_FILE)) {
@@ -36,13 +43,14 @@ function getState() {
   if (!memoryState.initialized) {
     const disk = readDiskCache();
     if (disk && Array.isArray(disk.attendees)) {
-      memoryState.attendees = disk.attendees;
+      memoryState.attendees = disk.attendees.filter(isRealAttendee);
       memoryState.activityLog = disk.activityLog || [];
       memoryState.registrationLocked = !!disk.registrationLocked;
       memoryState.latestPing = disk.latestPing || null;
       memoryState.initialized = true;
     }
   }
+  memoryState.attendees = (memoryState.attendees || []).filter(isRealAttendee);
   return memoryState;
 }
 
@@ -109,16 +117,23 @@ export default function handler(req, res) {
       const data = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 
       persistState(s => {
+        // Handle database reset
+        if (data && (data.resetDatabase === true || data.cleanDatabase === true || data.purgeDummy === true)) {
+          s.attendees = [];
+          s.activityLog = [];
+          s.latestPing = null;
+        }
+
         // Handle full ticket list sync (authoritative from client)
         if (Array.isArray(data)) {
-          s.attendees = data.filter(t => t && t.ticket_code);
+          s.attendees = data.filter(isRealAttendee);
         } else if (data && data.tickets && Array.isArray(data.tickets)) {
-          s.attendees = data.tickets.filter(t => t && t.ticket_code);
-        } else if (data && data.attendee && data.attendee.ticket_code) {
+          s.attendees = data.tickets.filter(isRealAttendee);
+        } else if (data && data.attendee && data.attendee.ticket_code && isRealAttendee(data.attendee)) {
           s.attendees = [
             data.attendee,
             ...s.attendees.filter(a => a && a.ticket_code !== data.attendee.ticket_code && a.student_id !== data.attendee.student_id)
-          ];
+          ].filter(isRealAttendee);
         }
 
         // Handle activity log entry addition
