@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import html2canvas from 'html2canvas';
 import { motion, AnimatePresence } from 'framer-motion';
