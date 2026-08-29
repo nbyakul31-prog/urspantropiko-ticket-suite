@@ -228,7 +228,7 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
     }
   };
 
-  // Direct High-Resolution Canvas Pass Generator (100% crisp QR Code, zero blank box bugs)
+  // High-Resolution Direct Canvas Badge Downloader (Guaranteed 100% sharp QR, no blank box)
   const handleDownloadBadge = async () => {
     if (!ticket) return;
     try {
@@ -404,7 +404,7 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4 }}
       >
-        {/* Hero Poster Banner with Central Floating SSG Logo */}
+        {/* Hero Poster Banner */}
         <motion.div
           className="portal-poster-hero"
           initial={{ opacity: 0, scale: 0.96 }}
@@ -413,121 +413,112 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
           style={{
             position: 'relative',
             overflow: 'hidden',
-            borderRadius: '20px',
-            marginBottom: '14px',
-            boxShadow: '0 15px 40px rgba(0,0,0,0.6)',
-            border: '2px solid rgba(255, 209, 0, 0.45)',
-            background: '#0B132B'
+            borderRadius: '16px',
+            marginBottom: '16px',
+            boxShadow: '0 12px 35px rgba(0,0,0,0.6)',
+            border: '1.5px solid rgba(255, 209, 0, 0.4)'
           }}
         >
           <img
             src="/poster.jpg"
             alt="URSPANTROPIKO Acquaintance Party Poster"
             className="portal-poster-img"
-            style={{ width: '100%', height: 'auto', maxHeight: '280px', objectFit: 'cover', display: 'block' }}
+            style={{ width: '100%', height: 'auto', maxHeight: '260px', objectFit: 'cover', display: 'block' }}
           />
           <div className="portal-poster-overlay" style={{
             position: 'absolute',
             inset: 0,
-            background: 'linear-gradient(to top, rgba(11,19,43,0.95) 0%, rgba(11,19,43,0.4) 50%, rgba(0,0,0,0.2) 100%)',
+            background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px 16px',
-            textAlign: 'center'
+            justifyContent: 'flex-end',
+            padding: '16px'
           }}>
-            {/* Center Floating SSG Seal */}
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.2, type: 'spring', stiffness: 260 }}
-              style={{
-                width: '76px',
-                height: '76px',
-                borderRadius: '50%',
-                background: '#FFFFFF',
-                border: '3px solid #FFD100',
-                boxShadow: '0 8px 30px rgba(0,0,0,0.7), 0 0 20px rgba(255, 209, 0, 0.4)',
-                padding: '4px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: '8px'
-              }}
-            >
-              <img
-                src="/logo.png"
-                alt="SSG Official Seal"
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '6px' }}>
+              <motion.img
+                src="/urs_logo.png"
+                alt="University of Rizal System Main Seal"
+                className="portal-hero-logo"
+                whileHover={{ scale: 1.1, rotate: [0, -5, 5, 0] }}
+                style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '50%',
+                  border: '2.5px solid #38BDF8',
+                  boxShadow: '0 0 25px rgba(56, 189, 248, 0.85), 0 6px 20px rgba(0, 0, 0, 0.8)',
+                  objectFit: 'contain',
+                  background: '#FFF'
+                }}
               />
-            </motion.div>
-
+              <motion.img
+                src="/logo.png"
+                alt="URSP SSG Official Logo"
+                className="portal-hero-logo"
+                whileHover={{ scale: 1.1, rotate: [0, 5, -5, 0] }}
+                style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '50%',
+                  border: '2.5px solid #FFD100',
+                  boxShadow: '0 0 25px rgba(255, 209, 0, 0.85), 0 6px 20px rgba(0, 0, 0, 0.8)',
+                  objectFit: 'contain',
+                  background: '#FFF'
+                }}
+              />
+            </div>
             <h1 style={{
-              fontSize: '1.85rem',
-              fontWeight: '900',
-              color: '#FFF',
-              textShadow: '0 0 15px rgba(255,209,0,0.6), 0 2px 10px rgba(0,0,0,0.9)',
-              margin: '0 0 4px',
-              letterSpacing: '0.5px'
+              fontFamily: "'Pacifico', cursive",
+              fontSize: '24px',
+              color: '#FFFFFF',
+              textShadow: '0 2px 10px rgba(255, 107, 53, 0.8), 0 0 25px rgba(255, 209, 0, 0.5)',
+              margin: '0 0 4px 0',
+              lineHeight: 1.2,
+              textAlign: 'center'
             }}>
               URSP Acquaintance Party
             </h1>
             <p style={{
-              fontSize: '0.78rem',
-              fontWeight: '800',
-              color: '#FEF08A',
-              letterSpacing: '0.6px',
+              fontFamily: "'Fredoka', sans-serif",
+              fontSize: '10px',
+              fontWeight: '700',
+              color: 'rgba(255, 255, 255, 0.9)',
               textTransform: 'uppercase',
-              maxWidth: '90%',
-              margin: '0 auto',
-              textShadow: '0 1px 8px rgba(0,0,0,0.8)',
-              lineHeight: '1.4'
+              letterSpacing: '1px',
+              margin: 0,
+              textAlign: 'center'
             }}>
-              URSPANTROPIKO: ONE ISLAND, ONE CAMPUS, ONE IDENTITY &ndash; RED HAWKS SOARING IN UNITY
+              URSPANTROPIKO: ONE ISLAND, ONE CAMPUS, ONE IDENTITY — RED HAWKS SOARING IN UNITY
             </p>
           </div>
         </motion.div>
 
         {/* 3-Column Event Details Strip Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.4 }}
-          style={{
-            background: 'rgba(15, 23, 42, 0.85)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            borderRadius: '16px',
-            padding: '12px 8px',
-            marginBottom: '18px',
-            display: 'grid',
-            gridTemplateColumns: '1.1fr 1.1fr 1fr',
-            gap: '8px',
-            textAlign: 'center'
-          }}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRight: '1px solid rgba(255,255,255,0.08)', paddingRight: '4px' }}>
-            <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '700' }}>Sept</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-              <span style={{ fontSize: '14px' }}>📅</span>
-              <span style={{ fontSize: '12.5px', fontWeight: '900', color: '#FFD100' }}>17–18, 2026</span>
+        <div className="portal-event-strip">
+          <div className="event-strip-item">
+            <span className="event-strip-icon">📅</span>
+            <div>
+              <div className="event-strip-label">Sept 17–18, 2026</div>
+              <div className="event-strip-sub">Thu & Fri</div>
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRight: '1px solid rgba(255,255,255,0.08)', paddingRight: '4px' }}>
-            <span style={{ fontSize: '11px', color: '#FFD100', fontWeight: '800' }}>5:00 PM –</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-              <span style={{ fontSize: '14px' }}>⏰</span>
-              <span style={{ fontSize: '12px', fontWeight: '800', color: '#FFD100' }}>5:00 AM</span>
+          <div className="event-strip-divider"></div>
+          <div className="event-strip-item">
+            <span className="event-strip-icon">⏰</span>
+            <div>
+              <div className="event-strip-label">5:00 PM – 5:00 AM</div>
+              <div className="event-strip-sub">Overnight Party</div>
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: '11px', color: '#FFD100', fontWeight: '800' }}>URS</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-              <span style={{ fontSize: '14px' }}>📍</span>
-              <span style={{ fontSize: '12px', fontWeight: '800', color: '#FFD100' }}>Pililla Gym</span>
+          <div className="event-strip-divider"></div>
+          <div className="event-strip-item">
+            <span className="event-strip-icon">📍</span>
+            <div>
+              <div className="event-strip-label">URS Pililla Gym</div>
+              <div className="event-strip-sub">Main Stage</div>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* View Mode: PASS DISPLAY */}
         {ticket ? (
@@ -766,11 +757,11 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
 
             {/* Collegiate Department Selector Grid */}
             <div className="portal-form-group">
-              <label className="portal-form-label" style={{ color: '#FFD100', fontWeight: '900', fontSize: '12px', letterSpacing: '0.8px' }}>
+              <label className="portal-form-label">
                 <span>SELECT YOUR COLLEGE DIVISION:</span>
                 <span className="label-required">*</span>
               </label>
-              <div className="portal-college-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+              <div className="portal-college-grid">
                 {COLLEGES_DATA.map(col => {
                   const isSelected = department === col.name;
                   return (
@@ -782,22 +773,13 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
                       onClick={() => handleSelectCollege(col.name)}
                       className={`portal-college-card ${isSelected ? 'selected' : ''}`}
                       style={{
-                        background: isSelected ? col.color : 'rgba(15, 23, 42, 0.6)',
-                        border: `1.5px solid ${isSelected ? col.color : 'rgba(255, 255, 255, 0.1)'}`,
-                        color: isSelected ? '#FFF' : '#94A3B8',
-                        padding: '10px 6px',
-                        borderRadius: '12px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: '4px',
-                        boxShadow: isSelected ? `0 4px 15px ${col.color}40` : 'none',
-                        transition: 'all 0.2s ease'
+                        borderColor: isSelected ? col.color : 'rgba(255, 255, 255, 0.1)',
+                        boxShadow: isSelected ? `0 0 20px ${col.color}60` : 'none'
                       }}
                     >
-                      <span style={{ fontSize: '1.2rem' }}>{col.icon}</span>
-                      <span style={{ fontSize: '0.8rem', fontWeight: '800' }}>{col.short}</span>
+                      <div className="portal-college-icon">{col.icon}</div>
+                      <div className="portal-college-name">{col.name}</div>
+                      <div className="portal-college-short" style={{ color: isSelected ? '#FFF' : col.color }}>{col.short}</div>
                     </motion.button>
                   );
                 })}
