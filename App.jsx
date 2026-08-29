@@ -439,18 +439,17 @@ export default function App() {
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Query Supabase Remote DB upon loading (Syncs registrations into Masterlist non-destructively)
+    // 1. Query Supabase Remote DB upon loading (Syncs registrations into Masterlist)
     async function syncFromSupabase() {
       try {
         if (supabase && typeof supabase.from === 'function') {
           const { data, error } = await supabase.from('attendees').select('*').order('created_at', { ascending: false });
           if (!error && Array.isArray(data) && data.length > 0 && isMounted) {
-            const currentLocal = getStoredTickets();
-            const merged = mergeTicketRecords(currentLocal, data);
-            if (merged.length > 0) {
-              setTickets(merged);
-              saveStoredTickets(merged);
-              broadcastCloudUpdate(merged);
+            const active = data.filter(t => t && t.ticket_code).map(normalizeTicket).filter(Boolean);
+            if (active.length > 0) {
+              setTickets(active);
+              saveStoredTickets(active);
+              broadcastCloudUpdate(active);
             }
           }
         }
@@ -531,10 +530,9 @@ export default function App() {
     const cleanupCloudSync = listenToCloudUpdates((cloudTickets, ping) => {
       if (Array.isArray(cloudTickets) && isMounted) {
         if (cloudTickets.length > 0) {
-          const currentLocal = getStoredTickets();
-          const merged = mergeTicketRecords(currentLocal, cloudTickets);
-          setTickets(merged);
-          saveStoredTickets(merged);
+          const active = cloudTickets.filter(t => t && t.ticket_code).map(normalizeTicket).filter(Boolean);
+          setTickets(active);
+          saveStoredTickets(active);
         } else {
           // If cloud is cold, check if local storage has tickets to re-seed
           const currentLocal = getStoredTickets();
