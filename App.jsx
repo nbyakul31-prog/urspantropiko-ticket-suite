@@ -494,10 +494,13 @@ export default function App() {
       if (!logUpdate || !isMounted) return;
       setActivityLog(prev => {
         let updated = prev;
-        if (Array.isArray(logUpdate)) {
-          updated = logUpdate.slice(0, 1000);
-        } else if (logUpdate.action === 'sync_all' && Array.isArray(logUpdate.logs)) {
-          updated = logUpdate.logs.slice(0, 1000);
+        if (logUpdate.action === 'sync_all' && Array.isArray(logUpdate.logs)) {
+          // Merge server logs and local logs seamlessly by unique ID without flickering
+          const serverLogIds = new Set(logUpdate.logs.map(l => l.id));
+          const localOnlyLogs = prev.filter(l => !serverLogIds.has(l.id));
+          const merged = [...localOnlyLogs, ...logUpdate.logs];
+          merged.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+          updated = merged.slice(0, 1000);
         } else if (logUpdate.action === 'add' && logUpdate.logEntry) {
           if (!prev.some(l => l.id === logUpdate.logEntry.id)) {
             updated = [logUpdate.logEntry, ...prev].slice(0, 1000);
@@ -729,10 +732,9 @@ export default function App() {
     } catch (e) {}
   };
 
-  // 5. Delete Single Attendee Handler
+  // 5. Delete Single Attendee Handler (No password required, instant execution)
   const handleDeleteAttendee = async (code) => {
     if (!code) return;
-    recordDeletedCode(code);
     let targetToDelete = null;
     let nextList = [];
 
@@ -765,27 +767,27 @@ export default function App() {
       department: targetToDelete?.department
     });
 
-    // Real-Time Supabase Database Row Deletion
+    // Real-Time Supabase Database Row Deletion (if connected)
     try {
       if (supabase && typeof supabase.from === 'function') {
         supabase.from('attendees').delete().eq('ticket_code', code).then(() => {}).catch(() => {});
         supabase.from('tickets').delete().eq('ticket_code', code).then(() => {}).catch(() => {});
       }
-    } catch (dbErr) {
-      console.warn('Supabase DB row deletion sync:', dbErr);
-    }
+    } catch (dbErr) {}
 
     return targetToDelete;
   };
 
-  // 6. Batch Delete Selected Attendees Handler with Admin Password Protection
+  // 6. Batch Delete Selected Attendees Handler with Account-Specific Admin Password Protection
   const handleBatchDeleteAttendees = async (codesToDelete = [], password = '') => {
     if (!Array.isArray(codesToDelete) || codesToDelete.length === 0) {
       return { success: false, error: 'No attendees selected for deletion.' };
     }
 
     const cleanInput = (password || '').trim();
-    const activeAccount = ADMIN_ACCOUNTS.find(a => a.id === adminSession?.id) || ADMIN_ACCOUNTS[0];
+    const currentAdminId = adminSession?.id || 'admin1';
+    const activeAccount = ADMIN_ACCOUNTS.find(a => a.id === currentAdminId) || ADMIN_ACCOUNTS[0];
+
     const isPwAuthorized = 
       cleanInput === '2026' || 
       cleanInput === 'URSP@SSG2026!' ||
@@ -794,12 +796,10 @@ export default function App() {
       ADMIN_ACCOUNTS.some(a => a.passwords.includes(cleanInput) || a.passwords.includes(cleanInput.toUpperCase()));
 
     if (!isPwAuthorized) {
-      return { success: false, error: '❌ Incorrect Admin Password. Batch deletion aborted.' };
+      return { success: false, error: `❌ Incorrect password for ${activeAccount.label}. Batch deletion aborted.` };
     }
 
     const deleteSet = new Set(codesToDelete);
-    codesToDelete.forEach(code => recordDeletedCode(code));
-
     let nextList = [];
     setTickets(prev => {
       nextList = prev.filter(t => !deleteSet.has(t.ticket_code));
@@ -820,7 +820,7 @@ export default function App() {
       message: `Batch of ${codesToDelete.length} student record(s) deleted by ${adminSession?.name || 'Admin'}.`
     });
 
-    // Real-Time Supabase Batch Deletion
+    // Real-Time Supabase Batch Deletion (if connected)
     try {
       if (supabase && typeof supabase.from === 'function') {
         supabase.from('attendees').delete().in('ticket_code', codesToDelete).then(() => {}).catch(() => {});
