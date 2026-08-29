@@ -54,7 +54,7 @@ export const getCollegeTheme = (collegeName) => {
   if (norm.includes('business') || norm.includes('cba') || norm.includes('bsba') || norm.includes('accountancy')) {
     return {
       name: 'College of Business',
-      short: 'CB',
+      short: 'COB',
       badgeBg: '#D1FAE5',
       badgeText: '#065F46',
       badgeBorder: '#A7F3D0',
@@ -70,7 +70,7 @@ export const getCollegeTheme = (collegeName) => {
   if (norm.includes('education') || norm.includes('ed')) {
     return {
       name: 'College of Education',
-      short: 'COED',
+      short: 'COE',
       badgeBg: '#FEF3C7',
       badgeText: '#92400E',
       badgeBorder: '#FDE68A',
@@ -522,9 +522,9 @@ export default function AdminDashboard({
 
   // Chart Data
   const deptData = [
-    { name: 'COED (Education)', total: collegeMetrics.education.count, paid: collegeMetrics.education.paid, day1: collegeMetrics.education.day1, day2: collegeMetrics.education.day2 },
+    { name: 'COE (Education)', total: collegeMetrics.education.count, paid: collegeMetrics.education.paid, day1: collegeMetrics.education.day1, day2: collegeMetrics.education.day2 },
     { name: 'CSS (Social Sci)', total: collegeMetrics.social.count, paid: collegeMetrics.social.paid, day1: collegeMetrics.social.day1, day2: collegeMetrics.social.day2 },
-    { name: 'CB (Business)', total: collegeMetrics.business.count, paid: collegeMetrics.business.paid, day1: collegeMetrics.business.day1, day2: collegeMetrics.business.day2 }
+    { name: 'COB (Business)', total: collegeMetrics.business.count, paid: collegeMetrics.business.paid, day1: collegeMetrics.business.day1, day2: collegeMetrics.business.day2 }
   ];
 
   const yearData = useMemo(() => {
@@ -1113,7 +1113,7 @@ export default function AdminDashboard({
         >
           <div className="college-card-header">
             <span className="college-chip chip-coed">
-              📚 COED • College of Education
+              📚 COE • College of Education
             </span>
             <span className="college-percent text-yellow">{collegeMetrics.education.pct}%</span>
           </div>
@@ -1185,7 +1185,7 @@ export default function AdminDashboard({
         >
           <div className="college-card-header">
             <span className="college-chip chip-cb">
-              💼 CB • College of Business
+              💼 COB • College of Business
             </span>
             <span className="college-percent text-green">{collegeMetrics.business.pct}%</span>
           </div>
@@ -1966,7 +1966,7 @@ export default function AdminDashboard({
 
               <div className="sitrep-metrics-list">
                 <div className="sitrep-pill-row">
-                  <span className="sitrep-pill-label">📚 Education (COED):</span>
+                  <span className="sitrep-pill-label">📚 Education (COE):</span>
                   <span className="sitrep-highlight-tag yellow">{collegeMetrics.education.count} <small>({collegeMetrics.education.pct}%)</small></span>
                 </div>
                 <div className="sitrep-pill-row">
@@ -1974,7 +1974,7 @@ export default function AdminDashboard({
                   <span className="sitrep-highlight-tag purple">{collegeMetrics.social.count} <small>({collegeMetrics.social.pct}%)</small></span>
                 </div>
                 <div className="sitrep-pill-row">
-                  <span className="sitrep-pill-label">💼 Business (CB):</span>
+                  <span className="sitrep-pill-label">💼 Business (COB):</span>
                   <span className="sitrep-highlight-tag green">{collegeMetrics.business.count} <small>({collegeMetrics.business.pct}%)</small></span>
                 </div>
               </div>
@@ -2026,7 +2026,7 @@ export default function AdminDashboard({
               whileHover={{ scale: 1.015, y: -3 }}
             >
               <div className="chart-header">
-                <h3>3 Official Colleges Participation (COED / CSS / CB)</h3>
+                <h3>3 Official Colleges Participation (COE / CSS / COB)</h3>
               </div>
               <div style={{ width: '100%', height: 300 }}>
                 <ResponsiveContainer>

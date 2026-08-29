@@ -8,7 +8,7 @@ import { broadcastCloudUpdate } from './lib/cloudSync';
 const COLLEGES_DATA = [
   {
     name: 'College of Business',
-    short: 'CB',
+    short: 'COB',
     icon: '💼',
     color: '#10B981',
     bgColor: '#D1FAE5',
@@ -18,7 +18,7 @@ const COLLEGES_DATA = [
   },
   {
     name: 'College of Education',
-    short: 'COED',
+    short: 'COE',
     icon: '📚',
     color: '#F59E0B',
     bgColor: '#FEF3C7',
@@ -59,6 +59,9 @@ export default function StudentPortal({
   // Retrieve Search State
   const [lookupQuery, setLookupQuery] = useState('');
   const [lookupError, setLookupError] = useState('');
+
+  // RA 10173 Data Privacy Consent State
+  const [privacyAgreed, setPrivacyAgreed] = useState(false);
 
   const badgeRef = useRef(null);
 
@@ -153,6 +156,12 @@ export default function StudentPortal({
   const handleGenerateTicket = async (e) => {
     e.preventDefault();
     setError(null);
+
+    if (!privacyAgreed) {
+      setError('Please agree to the Data Privacy Notice (RA 10173) before generating your pass.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -1015,24 +1024,74 @@ export default function StudentPortal({
               </div>
             </div>
 
+            {/* Data Privacy Act of 2012 (RA 10173) Compliance & Consent Box */}
+            <div style={{
+              background: 'rgba(0, 0, 0, 0.45)',
+              border: privacyAgreed ? '1px solid rgba(255, 209, 0, 0.6)' : '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '12px',
+              padding: '12px 14px',
+              marginTop: '12px',
+              marginBottom: '6px',
+              transition: 'all 0.2s ease',
+              boxShadow: privacyAgreed ? '0 0 16px rgba(255, 209, 0, 0.15)' : 'none'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <input
+                  type="checkbox"
+                  id="privacyConsentCheckbox"
+                  checked={privacyAgreed}
+                  onChange={(e) => {
+                    setPrivacyAgreed(e.target.checked);
+                    if (error) setError(null);
+                  }}
+                  style={{
+                    marginTop: '3px',
+                    width: '18px',
+                    height: '18px',
+                    accentColor: '#FFD100',
+                    cursor: 'pointer',
+                    flexShrink: 0
+                  }}
+                />
+                <label
+                  htmlFor="privacyConsentCheckbox"
+                  style={{
+                    fontSize: '11px',
+                    color: '#E2E8F0',
+                    lineHeight: '1.45',
+                    cursor: 'pointer',
+                    userSelect: 'none'
+                  }}
+                >
+                  <strong style={{ color: '#FFD100', display: 'block', marginBottom: '2px' }}>
+                    🔒 Data Privacy Act of 2012 (RA 10173) Consent
+                  </strong>
+                  I hereby agree to the collection and processing of my student data by the Supreme Student Government (SSG) solely for event verification, gate access, and acquaintance party registration.
+                </label>
+              </div>
+            </div>
+
             {/* Submit Action */}
             <motion.button
               type="submit"
-              disabled={loading}
+              disabled={loading || !privacyAgreed}
               className="portal-btn-primary portal-btn-glow"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: (loading || !privacyAgreed) ? 1 : 1.02 }}
+              whileTap={{ scale: (loading || !privacyAgreed) ? 1 : 0.98 }}
               style={{
-                background: 'linear-gradient(135deg, #FF6B35 0%, #FFD100 100%)',
-                color: '#000',
+                background: privacyAgreed
+                  ? 'linear-gradient(135deg, #FF6B35 0%, #FFD100 100%)'
+                  : 'rgba(255, 255, 255, 0.12)',
+                color: privacyAgreed ? '#000' : '#94A3B8',
                 fontWeight: '900',
                 padding: '16px',
                 borderRadius: '14px',
                 border: 'none',
                 fontSize: '1rem',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                boxShadow: '0 10px 30px rgba(255, 107, 53, 0.45)',
-                marginTop: '10px'
+                cursor: (loading || !privacyAgreed) ? 'not-allowed' : 'pointer',
+                boxShadow: privacyAgreed ? '0 10px 30px rgba(255, 107, 53, 0.45)' : 'none',
+                marginTop: '10px',
+                transition: 'all 0.2s ease'
               }}
             >
               {loading ? '⏳ Generating Pass...' : '🎟️ Generate Official Entrance Pass'}
