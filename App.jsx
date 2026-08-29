@@ -64,8 +64,15 @@ function unrecordDeletedCode(code) {
 }
 
 function normalizeTicket(t) {
+  if (!t || typeof t !== 'object') return null;
   return {
     ...t,
+    ticket_code: t.ticket_code || '',
+    student_id: t.student_id || '',
+    full_name: t.full_name || '',
+    department: t.department || 'College of Business',
+    program_section: t.program_section || '',
+    payment_status: t.payment_status || 'unpaid',
     day1_status: t.day1_status || (t.attendance_status === 'attended' ? 'attended' : 'not_attended'),
     day1_time: t.day1_time || t.attended_at || (t.attendance_status === 'attended' ? '08:15 AM' : null),
     day2_status: t.day2_status || 'not_attended',
@@ -90,7 +97,7 @@ function getStoredTickets() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        const active = parsed.filter(t => !deletedSet.has(t.ticket_code)).map(normalizeTicket);
+        const active = parsed.filter(t => t && t.ticket_code && !deletedSet.has(t.ticket_code)).map(normalizeTicket).filter(Boolean);
         if (active.length > 0) return active;
       }
     }
@@ -235,17 +242,12 @@ export default function App() {
     const token = params.get('token');
     const secKey = params.get('sec_key') || params.get('sec_token') || params.get('auth_key');
     
-    if ((viewParam === 'admin' || viewParam === 'sec_admin_9f8a3c42e1') && !isAdminAuthed) {
-      if (secKey === SECURE_ADMIN_HASH || viewParam === 'sec_admin_9f8a3c42e1') {
-        setPendingRoute('admin');
-        setPinError('');
-        setPinInput('');
-        setAuthStep(1);
-        setShowPinModal(true);
-      } else {
-        // Strip probing parameter from URL to prevent tampering
-        window.history.replaceState({}, '', window.location.pathname);
-      }
+    if ((viewParam === 'admin' || viewParam === 'sec_admin_9f8a3c42e1' || viewParam === 'logs') && !isAdminAuthed) {
+      setPendingRoute(viewParam === 'logs' ? 'logs' : 'admin');
+      setPinError('');
+      setPinInput('');
+      setAuthStep(1);
+      setShowPinModal(true);
     } else if (viewParam === 'usher' && token !== 'USHER-MASTER-2026' && !isAdminAuthed) {
       setPendingRoute('usher');
       setPinError('');
@@ -413,7 +415,7 @@ export default function App() {
           const { data, error } = await supabase.from('attendees').select('*').order('created_at', { ascending: false });
           if (!error && Array.isArray(data) && isMounted) {
             setTickets(() => {
-              const active = data.filter(t => !deletedSet.has(t.ticket_code)).map(normalizeTicket);
+              const active = data.filter(t => t && t.ticket_code && !deletedSet.has(t.ticket_code)).map(normalizeTicket).filter(Boolean);
               saveStoredTickets(active);
               return active;
             });
@@ -486,7 +488,7 @@ export default function App() {
       const deletedSet = getDeletedCodes();
       if (Array.isArray(cloudTickets) && isMounted) {
         setTickets(() => {
-          const active = cloudTickets.filter(t => !deletedSet.has(t.ticket_code)).map(normalizeTicket);
+          const active = cloudTickets.filter(t => t && t.ticket_code && !deletedSet.has(t.ticket_code)).map(normalizeTicket).filter(Boolean);
           saveStoredTickets(active);
           return active;
         });

@@ -44,22 +44,24 @@ export default function handler(req, res) {
 
       // Handle recorded deletions (Blacklist)
       if (data && Array.isArray(data.deletedCodes)) {
-        data.deletedCodes.forEach(code => cachedDeletedCodes.add(code));
+        data.deletedCodes.forEach(code => {
+          if (code) cachedDeletedCodes.add(String(code));
+        });
       }
       if (data && data.deleteTicketCode) {
-        cachedDeletedCodes.add(data.deleteTicketCode);
+        cachedDeletedCodes.add(String(data.deleteTicketCode));
       }
 
       // Handle ticket list sync
       if (Array.isArray(data)) {
-        cachedAttendees = data.filter(t => !cachedDeletedCodes.has(t.ticket_code));
+        cachedAttendees = data.filter(t => t && t.ticket_code && !cachedDeletedCodes.has(t.ticket_code));
       } else if (data && data.tickets && Array.isArray(data.tickets)) {
-        cachedAttendees = data.tickets.filter(t => !cachedDeletedCodes.has(t.ticket_code));
-      } else if (data && data.attendee) {
+        cachedAttendees = data.tickets.filter(t => t && t.ticket_code && !cachedDeletedCodes.has(t.ticket_code));
+      } else if (data && data.attendee && data.attendee.ticket_code) {
         cachedDeletedCodes.delete(data.attendee.ticket_code);
         cachedAttendees = [
           data.attendee,
-          ...cachedAttendees.filter(a => a.ticket_code !== data.attendee.ticket_code && a.student_id !== data.attendee.student_id)
+          ...cachedAttendees.filter(a => a && a.ticket_code !== data.attendee.ticket_code && a.student_id !== data.attendee.student_id)
         ];
       }
 
@@ -71,7 +73,7 @@ export default function handler(req, res) {
       // Handle activity log deletions (Gmail-like delete selected)
       if (data && Array.isArray(data.deleteLogIds) && data.deleteLogIds.length > 0) {
         const idSet = new Set(data.deleteLogIds);
-        cachedActivityLog = cachedActivityLog.filter(l => !idSet.has(l.id));
+        cachedActivityLog = cachedActivityLog.filter(l => l && !idSet.has(l.id));
       }
 
       // Handle clear all logs
@@ -104,7 +106,7 @@ export default function handler(req, res) {
   // GET: Return current sync state
   return res.status(200).json({
     success: true,
-    data: cachedAttendees || [],
+    data: (cachedAttendees || []).filter(t => t && t.ticket_code && !cachedDeletedCodes.has(t.ticket_code)),
     deletedCodes: Array.from(cachedDeletedCodes),
     activityLog: cachedActivityLog || [],
     registrationLocked: cachedRegistrationLocked
