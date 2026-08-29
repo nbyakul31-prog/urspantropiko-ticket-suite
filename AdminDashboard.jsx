@@ -381,9 +381,17 @@ export default function AdminDashboard({
     } catch (e) {}
   };
 
+  const [selectedUsherStation, setSelectedUsherStation] = useState('usher1');
+
   const activeBaseUrl = (publicDomain || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173')).replace(/\/+$/, '');
   const studentRegisterUrl = `${activeBaseUrl}/`;
-  const masterUsherUrl = `${activeBaseUrl}/?view=usher&token=${masterUsherToken}`;
+  const currentUsherObj = [
+    { id: 'usher1', name: 'Usher 1 (Gate Alpha)', location: 'North Entrance Gate', color: '#38BDF8', icon: '🚪' },
+    { id: 'usher2', name: 'Usher 2 (Gate Bravo)', location: 'Main Gym Entrance', color: '#10B981', icon: '🏛️' },
+    { id: 'usher3', name: 'Usher 3 (Gate Charlie)', location: 'South Field Gate', color: '#F59E0B', icon: '🎪' },
+    { id: 'usher4', name: 'Usher 4 (Fast Track)', location: 'VIP & Express Lane', color: '#EC4899', icon: '⚡' }
+  ].find(u => u.id === selectedUsherStation) || { id: 'usher1', name: 'Usher 1 (Gate Alpha)', location: 'North Entrance Gate', color: '#38BDF8', icon: '🚪' };
+  const masterUsherUrl = `${activeBaseUrl}/?view=usher&token=${masterUsherToken}&usher_id=${currentUsherObj.id}&name=${encodeURIComponent(currentUsherObj.name)}&role=${encodeURIComponent(currentUsherObj.location)}`;
 
   // Duplicate Tracking across dataset
   const duplicatesMap = useMemo(() => {
@@ -2370,22 +2378,67 @@ export default function AdminDashboard({
                   transition={{ duration: 0.22 }}
                   style={{ padding: '28px 32px', display: 'flex', gap: '36px', alignItems: 'flex-start', flexWrap: 'wrap' }}
                 >
-                  <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '16px', display: 'inline-flex', boxShadow: '0 0 0 4px rgba(245,158,11,0.4)', flexShrink: 0 }}>
+                  <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '16px', display: 'inline-flex', boxShadow: `0 0 0 4px ${currentUsherObj.color}80`, flexShrink: 0 }}>
                     <QRCodeCanvas value={masterUsherUrl} size={200} level="H" />
                   </div>
                   <div style={{ flex: 1, minWidth: '220px' }}>
-                    <div className="badge-tag" style={{ marginBottom: '12px' }}>MARSHAL DISPATCH PASS</div>
-                    <h3 style={{ color: '#FFFFFF', fontWeight: '900', fontSize: '1.15rem', margin: '0 0 8px' }}>Single Master Usher Access Pass</h3>
-                    <p style={{ color: '#94A3B8', fontSize: '12px', lineHeight: '1.6', margin: '0 0 16px' }}>
-                      Ushers scan this single QR from your screen with their mobile camera to unlock the gate scanner. Valid for all official ushers and marshals of the event.
+                    <div className="badge-tag" style={{ marginBottom: '8px', background: `${currentUsherObj.color}25`, color: currentUsherObj.color, border: `1px solid ${currentUsherObj.color}60` }}>
+                      {currentUsherObj.icon} {currentUsherObj.name.toUpperCase()}
+                    </div>
+                    <h3 style={{ color: '#FFFFFF', fontWeight: '900', fontSize: '1.15rem', margin: '0 0 6px' }}>
+                      {currentUsherObj.name} Pass
+                    </h3>
+                    <p style={{ color: '#94A3B8', fontSize: '12px', lineHeight: '1.5', margin: '0 0 12px' }}>
+                      Select the entrance gate station below. The marshal scans this QR to unlock their scanner with automatic station identity tracking.
                     </p>
+
+                    {/* Usher Station Selector Buttons */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '12px' }}>
+                      {[
+                        { id: 'usher1', name: 'Usher 1 (Gate Alpha)', location: 'North Entrance Gate', color: '#38BDF8', icon: '🚪' },
+                        { id: 'usher2', name: 'Usher 2 (Gate Bravo)', location: 'Main Gym Entrance', color: '#10B981', icon: '🏛️' },
+                        { id: 'usher3', name: 'Usher 3 (Gate Charlie)', location: 'South Field Gate', color: '#F59E0B', icon: '🎪' },
+                        { id: 'usher4', name: 'Usher 4 (Fast Track)', location: 'VIP & Express Lane', color: '#EC4899', icon: '⚡' }
+                      ].map(st => {
+                        const isSel = selectedUsherStation === st.id;
+                        return (
+                          <button
+                            key={st.id}
+                            type="button"
+                            onClick={() => setSelectedUsherStation(st.id)}
+                            style={{
+                              background: isSel ? st.color : 'rgba(255,255,255,0.06)',
+                              border: `1.5px solid ${isSel ? st.color : 'rgba(255,255,255,0.12)'}`,
+                              color: isSel ? '#000' : '#E2E8F0',
+                              fontWeight: '800',
+                              fontSize: '11px',
+                              padding: '7px 8px',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              transition: 'all 0.2s ease',
+                              boxShadow: isSel ? `0 0 14px ${st.color}50` : 'none'
+                            }}
+                          >
+                            <span>{st.icon}</span>
+                            <span style={{ textAlign: 'left', lineHeight: '1.2' }}>
+                              <div>{st.name}</div>
+                              <div style={{ fontSize: '9px', opacity: isSel ? 0.9 : 0.6 }}>{st.location}</div>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#7DD3FC', background: '#0D1322', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(56,189,248,0.2)', wordBreak: 'break-all' }}>{masterUsherUrl}</div>
-                      <motion.button className="btn-bulk-verify w-full" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => copyToClipboard(masterUsherUrl, 'Usher Scanner Link')}>
-                        📋 Copy Master Usher Link
+                      <motion.button className="btn-bulk-verify w-full" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => copyToClipboard(masterUsherUrl, `${currentUsherObj.name} Link`)}>
+                        📋 Copy {currentUsherObj.name} Link
                       </motion.button>
                       <a href={masterUsherUrl} target="_blank" rel="noreferrer" className="btn-action btn-undo text-center block w-full mt-1" style={{ textDecoration: 'none' }}>
-                        📱 Open Scanner on this Device
+                        📱 Open Scanner as {currentUsherObj.name}
                       </a>
                     </div>
                   </div>
@@ -3001,8 +3054,48 @@ export default function AdminDashboard({
                 </div>
               </div>
 
+              {/* Station Selector in Modal */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '14px', textAlign: 'left' }}>
+                {[
+                  { id: 'usher1', name: 'Usher 1 (Gate Alpha)', location: 'North Entrance Gate', color: '#38BDF8', icon: '🚪' },
+                  { id: 'usher2', name: 'Usher 2 (Gate Bravo)', location: 'Main Gym Entrance', color: '#10B981', icon: '🏛️' },
+                  { id: 'usher3', name: 'Usher 3 (Gate Charlie)', location: 'South Field Gate', color: '#F59E0B', icon: '🎪' },
+                  { id: 'usher4', name: 'Usher 4 (Fast Track)', location: 'VIP & Express Lane', color: '#EC4899', icon: '⚡' }
+                ].map(st => {
+                  const isSel = selectedUsherStation === st.id;
+                  return (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => setSelectedUsherStation(st.id)}
+                      style={{
+                        background: isSel ? st.color : 'rgba(255,255,255,0.06)',
+                        border: `1.5px solid ${isSel ? st.color : 'rgba(255,255,255,0.12)'}`,
+                        color: isSel ? '#000' : '#E2E8F0',
+                        fontWeight: '800',
+                        fontSize: '11px',
+                        padding: '7px 8px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        transition: 'all 0.2s ease',
+                        boxShadow: isSel ? `0 0 14px ${st.color}50` : 'none'
+                      }}
+                    >
+                      <span>{st.icon}</span>
+                      <span style={{ lineHeight: '1.2' }}>
+                        <div>{st.name}</div>
+                        <div style={{ fontSize: '9px', opacity: isSel ? 0.9 : 0.6 }}>{st.location}</div>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
               {/* High-Contrast QR Code */}
-              <div className="qr-box-large" style={{ background: '#FFFFFF', padding: '16px', borderRadius: '14px', display: 'inline-block', boxShadow: '0 0 30px rgba(56, 189, 248, 0.3)' }}>
+              <div className="qr-box-large" style={{ background: '#FFFFFF', padding: '16px', borderRadius: '14px', display: 'inline-block', boxShadow: `0 0 30px ${currentUsherObj.color}60`, border: `3px solid ${currentUsherObj.color}` }}>
                 <QRCodeCanvas value={masterUsherUrl} size={230} level="H" includeMargin={true} />
               </div>
 
@@ -3010,7 +3103,7 @@ export default function AdminDashboard({
                 <div className="font-mono text-xs text-blue break-all" style={{ textAlign: 'left', flex: 1 }}>{masterUsherUrl}</div>
                 <button
                   type="button"
-                  onClick={() => copyToClipboard(masterUsherUrl, 'Master Usher Scanner Pass URL')}
+                  onClick={() => copyToClipboard(masterUsherUrl, `${currentUsherObj.name} Pass URL`)}
                   style={{
                     background: 'rgba(56, 189, 248, 0.2)',
                     border: '1px solid rgba(56, 189, 248, 0.4)',

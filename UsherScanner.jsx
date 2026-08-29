@@ -15,6 +15,32 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
 
   const [daySelectionMode, setDaySelectionMode] = useState('auto'); // 'auto' | 'day1' | 'day2'
 
+  // Extract Usher Station / Account Identity from URL parameters or session
+  const [usherSession, setUsherSession] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const usherId = params.get('usher_id') || params.get('usher') || 'usher1';
+      const usherName = params.get('name') || params.get('usher_name') || (
+        usherId === 'usher2' ? 'Usher 2 (Gate Bravo)' :
+        usherId === 'usher3' ? 'Usher 3 (Gate Charlie)' :
+        usherId === 'usher4' ? 'Usher 4 (Fast Track)' :
+        'Usher 1 (Gate Alpha)'
+      );
+      const usherRole = params.get('role') || (
+        usherId === 'usher2' ? 'Main Gym Entrance' :
+        usherId === 'usher3' ? 'South Field Gate' :
+        usherId === 'usher4' ? 'VIP & Express Lane' :
+        'North Entrance Gate'
+      );
+
+      const session = { id: usherId, name: usherName, role: usherRole };
+      sessionStorage.setItem('ursp_usher_session', JSON.stringify(session));
+      return session;
+    } catch (e) {
+      return { id: 'usher1', name: 'Usher 1 (Gate Alpha)', role: 'North Entrance Gate' };
+    }
+  });
+
   // Automatic Philippine Standard Time (GMT+8) Detection
   const getAutoPHDay = () => {
     try {
@@ -217,14 +243,21 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
   const confirmAdmit = () => {
     if (currentResult && currentResult.student) {
       const student = currentResult.student;
-      const timeNow = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const timeNow = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Manila',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      }).format(new Date());
+
+      const activeUsherName = usherSession?.name || 'Usher 1 (Gate Alpha)';
 
       if (isOnline) {
-        onAdmitStudent(student.ticket_code, activeDay, timeNow);
+        onAdmitStudent(student.ticket_code, activeDay, timeNow, activeUsherName);
         playTone(1200, 0.2);
         handleScan(student.ticket_code);
       } else {
-        updateLocalCacheAndQueueAdmission(student.ticket_code, activeDay, timeNow);
+        updateLocalCacheAndQueueAdmission(student.ticket_code, activeDay, timeNow, activeUsherName);
         playTone(1200, 0.2);
         setCurrentResult(prev => ({
           ...prev,
@@ -400,11 +433,11 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
                 }}
               />
               <div>
-                <h1 style={{ fontSize: '17px', fontWeight: '800', color: '#FFF', margin: 0, lineHeight: 1.2 }}>
-                  Usher QR Scanner
+                <h1 style={{ fontSize: '16px', fontWeight: '800', color: '#FFF', margin: 0, lineHeight: 1.2 }}>
+                  {usherSession?.name || 'Usher 1 (Gate Alpha)'}
                 </h1>
-                <p style={{ fontSize: '10px', color: '#94A3B8', margin: '2px 0 0 0' }}>
-                  URSPantropiko Gate Check-in
+                <p style={{ fontSize: '10.5px', color: '#38BDF8', margin: '2px 0 0 0', fontWeight: '700' }}>
+                  📍 {usherSession?.role || 'North Entrance Gate'}
                 </p>
               </div>
             </div>

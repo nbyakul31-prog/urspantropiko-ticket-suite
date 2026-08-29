@@ -739,12 +739,13 @@ export default function App() {
     } catch (e) {}
   };
 
-  // 4. Usher Gate Admission Handler (Day 1 vs Day 2 Auto PH Time)
-  const handleAdmitStudent = async (code, targetDay = 'day1', customTime = null) => {
+  // 4. Usher Gate Admission Handler (Day 1 vs Day 2 Auto PH Time with Actor / Usher Station tracking)
+  const handleAdmitStudent = async (code, targetDay = 'day1', customTime = null, actor = null) => {
     const timeString = customTime || getPHShortTime();
     let ping = null;
     let updatedRecord = null;
     const isDay1 = targetDay === 'day1';
+    const actorName = actor || (route === 'usher' ? 'Usher 1 (Gate Alpha)' : (adminSession?.name || 'Admin 1 (Executive Head)'));
 
     setTickets(prev => {
       const nextList = prev.map(t => {
@@ -761,10 +762,11 @@ export default function App() {
           ping = {
             type: 'admission',
             title: `⚡ GATE ADMISSION (${isDay1 ? 'DAY 1' : 'DAY 2'})`,
-            message: `${t.full_name} entered the venue for ${isDay1 ? 'Day 1' : 'Day 2'} at ${timeString} (PST)!`,
+            message: `${t.full_name} admitted for ${isDay1 ? 'Day 1' : 'Day 2'} at ${timeString} (PST) via ${actorName}.`,
             ticket_code: code,
             department: t.department,
-            day: targetDay
+            day: targetDay,
+            actor: actorName
           };
           return updated;
         }
@@ -778,9 +780,11 @@ export default function App() {
       addLogEntry({
         type: 'admission',
         title: `⚡ GATE ADMISSION (${isDay1 ? 'DAY 1' : 'DAY 2'})`,
-        message: `${updatedRecord.full_name || code} entered venue at ${timeString} (PST).`,
+        message: `${updatedRecord.full_name || code} admitted at ${timeString} (PST) via ${actorName}.`,
         ticket_code: code,
-        department: updatedRecord.department
+        department: updatedRecord.department,
+        actor: actorName,
+        device: 'Usher Scanner'
       });
     }
 
