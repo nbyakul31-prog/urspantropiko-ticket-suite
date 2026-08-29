@@ -539,9 +539,28 @@ export default function App() {
             if (rawDelLogs) delLogSet = new Set(JSON.parse(rawDelLogs));
           } catch (e) {}
 
-          const cloudLogs = logUpdate.logs.filter(l => l && l.id && !delLogSet.has(l.id));
-          cloudLogs.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
-          updated = cloudLogs.slice(0, 1000);
+          const map = new Map();
+          // 1. Keep local logs (filtered by tombstones)
+          (prev || []).forEach(l => {
+            if (l && l.id && !delLogSet.has(l.id)) map.set(l.id, l);
+          });
+          // 2. Union merge incoming remote logs (filtered by tombstones)
+          logUpdate.logs.forEach(l => {
+            if (l && l.id && !delLogSet.has(l.id)) map.set(l.id, l);
+          });
+
+          const union = Array.from(map.values());
+          union.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+          updated = union.slice(0, 1000);
+
+          // If cold server returned empty but client has logs, warm the server in background
+          if (logUpdate.logs.length === 0 && updated.length > 0) {
+            fetch('/api/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ activityLog: updated })
+            }).catch(() => {});
+          }
         } else if (logUpdate.action === 'add' && logUpdate.logEntry) {
           let delLogSet = new Set();
           try {
