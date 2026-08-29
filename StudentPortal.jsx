@@ -556,29 +556,43 @@ export default function StudentPortal({
           </div>
         </motion.div>
 
-        {/* 3-Column Event Details Strip Card */}
-        <div className="portal-event-strip">
-          <div className="event-strip-item">
-            <span className="event-strip-icon">📅</span>
+        {/* 4-Column Compressed Event Details Strip Card */}
+        <div className="portal-event-strip" style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: '4px',
+          padding: '8px 8px',
+          background: 'rgba(0, 0, 0, 0.55)',
+          border: '1px solid rgba(255, 209, 0, 0.3)',
+          borderRadius: '12px',
+          marginBottom: '16px'
+        }}>
+          <div className="event-strip-item" style={{ flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '2px' }}>
+            <span className="event-strip-icon" style={{ fontSize: '13px' }}>📅</span>
             <div>
-              <div className="event-strip-label">Sept 17–18, 2026</div>
-              <div className="event-strip-sub">Thu & Fri</div>
+              <div className="event-strip-label" style={{ fontSize: '10px', fontWeight: '800', color: '#FFD100', lineHeight: 1.1 }}>Sept 17–18</div>
+              <div className="event-strip-sub" style={{ fontSize: '8.5px', color: '#CBD5E1', opacity: 0.85 }}>Thu & Fri</div>
             </div>
           </div>
-          <div className="event-strip-divider"></div>
-          <div className="event-strip-item">
-            <span className="event-strip-icon">⏰</span>
+          <div className="event-strip-item" style={{ flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '2px', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
+            <span className="event-strip-icon" style={{ fontSize: '13px' }}>⏰</span>
             <div>
-              <div className="event-strip-label">5:00 PM – 5:00 AM</div>
-              <div className="event-strip-sub">Overnight Party</div>
+              <div className="event-strip-label" style={{ fontSize: '10px', fontWeight: '800', color: '#FFD100', lineHeight: 1.1 }}>5PM – 5AM</div>
+              <div className="event-strip-sub" style={{ fontSize: '8.5px', color: '#CBD5E1', opacity: 0.85 }}>Overnight</div>
             </div>
           </div>
-          <div className="event-strip-divider"></div>
-          <div className="event-strip-item">
-            <span className="event-strip-icon">📍</span>
+          <div className="event-strip-item" style={{ flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '2px', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
+            <span className="event-strip-icon" style={{ fontSize: '13px' }}>📍</span>
             <div>
-              <div className="event-strip-label">URS Pililla Gym</div>
-              <div className="event-strip-sub">Main Stage</div>
+              <div className="event-strip-label" style={{ fontSize: '10px', fontWeight: '800', color: '#FFD100', lineHeight: 1.1 }}>Pililla Gym</div>
+              <div className="event-strip-sub" style={{ fontSize: '8.5px', color: '#CBD5E1', opacity: 0.85 }}>Main Stage</div>
+            </div>
+          </div>
+          <div className="event-strip-item" style={{ flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '2px', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
+            <span className="event-strip-icon" style={{ fontSize: '13px' }}>🎟️</span>
+            <div>
+              <div className="event-strip-label" style={{ fontSize: '10px', fontWeight: '800', color: '#34D399', lineHeight: 1.1 }}>₱100 Price</div>
+              <div className="event-strip-sub" style={{ fontSize: '8.5px', color: '#A7F3D0', opacity: 0.9 }}>Pass Fee</div>
             </div>
           </div>
         </div>

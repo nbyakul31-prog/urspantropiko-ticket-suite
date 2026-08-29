@@ -37,6 +37,7 @@ let memoryState = {
   registrationLocked: false,
   latestPing: null,
   deletedCodes: [],
+  deletedLogIds: [],
   initialized: false
 };
 
@@ -45,15 +46,19 @@ function getState() {
     const disk = readDiskCache();
     if (disk && Array.isArray(disk.attendees)) {
       memoryState.deletedCodes = Array.isArray(disk.deletedCodes) ? disk.deletedCodes : [];
+      memoryState.deletedLogIds = Array.isArray(disk.deletedLogIds) ? disk.deletedLogIds : [];
       memoryState.attendees = disk.attendees.filter(t => isRealAttendee(t) && !memoryState.deletedCodes.includes(t.ticket_code));
-      memoryState.activityLog = disk.activityLog || [];
+      const logDelSet = new Set(memoryState.deletedLogIds);
+      memoryState.activityLog = (disk.activityLog || []).filter(l => l && l.id && !logDelSet.has(l.id));
       memoryState.registrationLocked = !!disk.registrationLocked;
       memoryState.latestPing = disk.latestPing || null;
       memoryState.initialized = true;
     }
   }
   const delSet = new Set(memoryState.deletedCodes || []);
+  const logDelSet = new Set(memoryState.deletedLogIds || []);
   memoryState.attendees = (memoryState.attendees || []).filter(t => isRealAttendee(t) && !delSet.has(t.ticket_code));
+  memoryState.activityLog = (memoryState.activityLog || []).filter(l => l && l.id && !logDelSet.has(l.id));
   return memoryState;
 }
 
@@ -68,6 +73,10 @@ function persistState(updater) {
 function appendLogEntry(state, entry) {
   if (!entry || !entry.type) return;
   const entryId = entry.id || `log_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  entry.id = entryId;
+
+  // 0. Do not append if blacklisted in deletedLogIds
+  if (state.deletedLogIds && state.deletedLogIds.includes(entryId)) return;
 
   // 1. Deduplicate by exact ID
   if (state.activityLog.some(l => l && l.id === entryId)) return;
@@ -153,13 +162,15 @@ export default function handler(req, res) {
 
         // Handle activity log deletions (Gmail-like delete selected)
         if (data && Array.isArray(data.deleteLogIds) && data.deleteLogIds.length > 0) {
-          const idSet = new Set(data.deleteLogIds);
+          s.deletedLogIds = Array.from(new Set([...(s.deletedLogIds || []), ...data.deleteLogIds]));
+          const idSet = new Set(s.deletedLogIds);
           s.activityLog = s.activityLog.filter(l => l && !idSet.has(l.id));
         }
 
         // Handle clear all logs
         if (data && data.clearLogs === true) {
           s.activityLog = [];
+          s.deletedLogIds = [];
         }
 
         // Handle bulk log sync

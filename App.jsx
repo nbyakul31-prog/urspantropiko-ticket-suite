@@ -497,24 +497,11 @@ export default function App() {
       }
     } catch (err) {}
 
-    // Seed Vercel Cloud Relay on mount if this device holds attendees or activity logs
+    // Seed Vercel Cloud Relay on mount if this device holds attendees
     const localSeed = getStoredTickets();
     if (localSeed && localSeed.length > 0) {
       broadcastCloudUpdate(localSeed);
     }
-    try {
-      const rawLogs = localStorage.getItem('ursp_activity_log_v1');
-      if (rawLogs) {
-        const localLogs = JSON.parse(rawLogs);
-        if (Array.isArray(localLogs) && localLogs.length > 0) {
-          fetch('/api/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ activityLog: localLogs })
-          }).catch(() => {});
-        }
-      }
-    } catch (e) {}
 
     // 3. Real-Time Cloud Listener for Cross-Device Sync (Phone <-> PC Admin)
     const cleanupCloudSync = listenToCloudUpdates((cloudTickets, ping) => {
@@ -546,15 +533,23 @@ export default function App() {
       setActivityLog(prev => {
         let updated = prev;
         if (logUpdate.action === 'sync_all' && Array.isArray(logUpdate.logs)) {
-          // Non-destructive ID union merge so cold initial responses don't wipe active logs
-          const mergedMap = new Map();
-          prev.forEach(l => { if (l && l.id) mergedMap.set(l.id, l); });
-          logUpdate.logs.forEach(l => { if (l && l.id) mergedMap.set(l.id, l); });
-          const merged = Array.from(mergedMap.values());
-          merged.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
-          updated = merged.slice(0, 1000);
+          let delLogSet = new Set();
+          try {
+            const rawDelLogs = localStorage.getItem('ursp_deleted_log_ids_v1');
+            if (rawDelLogs) delLogSet = new Set(JSON.parse(rawDelLogs));
+          } catch (e) {}
+
+          const cloudLogs = logUpdate.logs.filter(l => l && l.id && !delLogSet.has(l.id));
+          cloudLogs.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+          updated = cloudLogs.slice(0, 1000);
         } else if (logUpdate.action === 'add' && logUpdate.logEntry) {
-          if (!prev.some(l => l.id === logUpdate.logEntry.id)) {
+          let delLogSet = new Set();
+          try {
+            const rawDelLogs = localStorage.getItem('ursp_deleted_log_ids_v1');
+            if (rawDelLogs) delLogSet = new Set(JSON.parse(rawDelLogs));
+          } catch (e) {}
+
+          if (!delLogSet.has(logUpdate.logEntry.id) && !prev.some(l => l.id === logUpdate.logEntry.id)) {
             updated = [logUpdate.logEntry, ...prev].slice(0, 1000);
           }
         } else if (logUpdate.action === 'delete' && Array.isArray(logUpdate.deleteLogIds)) {
@@ -933,6 +928,14 @@ export default function App() {
   const handleDeleteLogs = (logIds) => {
     if (!Array.isArray(logIds) || logIds.length === 0) return;
     const idSet = new Set(logIds);
+
+    try {
+      const rawDelLogs = localStorage.getItem('ursp_deleted_log_ids_v1');
+      const parsedDelLogs = rawDelLogs ? JSON.parse(rawDelLogs) : [];
+      const updatedDelLogs = Array.from(new Set([...parsedDelLogs, ...logIds]));
+      localStorage.setItem('ursp_deleted_log_ids_v1', JSON.stringify(updatedDelLogs));
+    } catch (e) {}
+
     setActivityLog(prev => {
       const next = prev.filter(l => !idSet.has(l.id));
       try { localStorage.setItem('ursp_activity_log_v1', JSON.stringify(next)); } catch (e) {}
@@ -942,8 +945,11 @@ export default function App() {
   };
 
   const handleClearAllLogs = () => {
+    try {
+      localStorage.removeItem('ursp_activity_log_v1');
+      localStorage.removeItem('ursp_deleted_log_ids_v1');
+    } catch (e) {}
     setActivityLog([]);
-    try { localStorage.removeItem('ursp_activity_log_v1'); } catch (e) {}
     broadcastClearLogs();
   };
 
