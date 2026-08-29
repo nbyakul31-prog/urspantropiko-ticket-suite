@@ -1,57 +1,33 @@
 // Serverless In-Memory Cloud Sync State for URSPantropiko Ticket Suite
-const DEFAULT_CLEAN_ATTENDEES = [
-  { 
-    id: 'CB-01', 
-    ticket_code: 'URS-20001', 
-    student_id: '2024-01001', 
-    full_name: 'Abad, Christian Paul', 
-    department: 'College of Business', 
-    year_level: '1st Year', 
-    program_section: 'BSBA 1-A', 
-    payment_status: 'paid', 
-    day1_status: 'attended', 
-    day1_time: '08:14 AM', 
-    day2_status: 'not_attended', 
-    day2_time: null, 
-    attendance_status: 'attended',
-    created_at: '2026-08-27T08:14:00.000Z'
-  },
-  { 
-    id: 'COED-01', 
-    ticket_code: 'URS-30001', 
-    student_id: '2024-02001', 
-    full_name: 'Alano, Kimberly Joyce', 
-    department: 'College of Education', 
-    year_level: '1st Year', 
-    program_section: 'BSED 1-A', 
-    payment_status: 'paid', 
-    day1_status: 'attended', 
-    day1_time: '08:10 AM', 
-    day2_status: 'not_attended', 
-    day2_time: null, 
-    attendance_status: 'attended',
-    created_at: '2026-08-27T08:10:00.000Z'
-  },
-  { 
-    id: 'CSS-01', 
-    ticket_code: 'URS-40001', 
-    student_id: '2024-03001', 
-    full_name: 'Agustin, Cedric Liam', 
-    department: 'College of Social Sciences', 
-    year_level: '1st Year', 
-    program_section: 'BS-PSYCH 1-A', 
-    payment_status: 'unpaid', 
-    day1_status: 'not_attended', 
-    day1_time: null, 
-    day2_status: 'not_attended', 
-    day2_time: null, 
-    attendance_status: 'not_attended',
-    created_at: '2026-08-27T08:05:00.000Z'
-  }
-];
+// NOTE: No hardcoded seed data — Supabase is the single source of truth.
+// This API is purely an ephemeral relay for cross-device real-time sync.
 
-let cachedAttendees = DEFAULT_CLEAN_ATTENDEES;
+let cachedAttendees = [];
 let cachedRegistrationLocked = false;
+let cachedActivityLog = [];
+
+const MAX_LOG_ENTRIES = 1000;
+
+function appendLogEntry(entry) {
+  if (!entry || !entry.type) return;
+  const logItem = {
+    id: entry.id || `log_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+    type: entry.type,
+    title: entry.title || '',
+    message: entry.message || '',
+    actor: entry.actor || 'System',
+    device: entry.device || 'Unknown',
+    department: entry.department || null,
+    ticket_code: entry.ticket_code || null,
+    timestamp: entry.timestamp || new Date().toISOString(),
+    server_time: new Date().toISOString()
+  };
+  cachedActivityLog.unshift(logItem);
+  if (cachedActivityLog.length > MAX_LOG_ENTRIES) {
+    cachedActivityLog = cachedActivityLog.slice(0, MAX_LOG_ENTRIES);
+  }
+  return logItem;
+}
 
 export default function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -65,6 +41,8 @@ export default function handler(req, res) {
   if (req.method === 'POST' || req.method === 'PUT') {
     try {
       const data = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+
+      // Handle ticket/attendee sync
       if (Array.isArray(data)) {
         cachedAttendees = data;
       } else if (data && data.tickets && Array.isArray(data.tickets)) {
@@ -72,6 +50,27 @@ export default function handler(req, res) {
       } else if (data && data.attendee) {
         if (!cachedAttendees) cachedAttendees = [];
         cachedAttendees = [data.attendee, ...cachedAttendees.filter(a => a.ticket_code !== data.attendee.ticket_code && a.student_id !== data.attendee.student_id)];
+      }
+
+      // Handle activity log entry addition
+      if (data && data.logEntry) {
+        appendLogEntry(data.logEntry);
+      }
+
+      // Handle activity log deletions (Gmail-like delete selected)
+      if (data && Array.isArray(data.deleteLogIds) && data.deleteLogIds.length > 0) {
+        const idSet = new Set(data.deleteLogIds);
+        cachedActivityLog = cachedActivityLog.filter(l => !idSet.has(l.id));
+      }
+
+      // Handle clear all logs
+      if (data && data.clearLogs === true) {
+        cachedActivityLog = [];
+      }
+
+      // Handle bulk log sync
+      if (data && Array.isArray(data.activityLog)) {
+        data.activityLog.forEach(entry => appendLogEntry(entry));
       }
 
       if (data && typeof data.registrationLocked === 'boolean') {
@@ -82,6 +81,7 @@ export default function handler(req, res) {
         success: true,
         count: (cachedAttendees || []).length,
         data: cachedAttendees,
+        activityLog: cachedActivityLog,
         registrationLocked: cachedRegistrationLocked
       });
     } catch (e) {
@@ -89,10 +89,11 @@ export default function handler(req, res) {
     }
   }
 
-  // GET: Pure state fetch with NO stale event replay
+  // GET: Return current sync state
   return res.status(200).json({
     success: true,
-    data: cachedAttendees || DEFAULT_CLEAN_ATTENDEES,
+    data: cachedAttendees || [],
+    activityLog: cachedActivityLog || [],
     registrationLocked: cachedRegistrationLocked
   });
 }

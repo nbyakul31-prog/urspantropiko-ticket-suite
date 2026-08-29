@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { QRCodeCanvas } from 'qrcode.react';
+import { QRCodeSVG } from 'qrcode.react';
 import html2canvas from 'html2canvas';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './lib/supabase';
@@ -198,10 +198,10 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
 
       // Cross-Device Real-Time Cloud Broadcast
       try {
-        const existingData = localStorage.getItem('ursp_masterlist_attendees_v4');
+        const existingData = localStorage.getItem('ursp_masterlist_attendees_v5');
         let currentList = existingData ? JSON.parse(existingData) : [];
         currentList = [newAttendee, ...currentList.filter(t => t.ticket_code !== newAttendee.ticket_code && t.student_id !== newAttendee.student_id)];
-        localStorage.setItem('ursp_masterlist_attendees_v4', JSON.stringify(currentList));
+        localStorage.setItem('ursp_masterlist_attendees_v5', JSON.stringify(currentList));
 
         const registrationPing = {
           type: 'registration',
@@ -236,7 +236,7 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
         scale: 3,
         useCORS: true,
         allowTaint: true,
-        backgroundColor: null,
+        backgroundColor: '#0F172A',
         logging: false
       });
       const image = canvas.toDataURL('image/png');
@@ -627,7 +627,7 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
                   boxShadow: '0 8px 25px rgba(0,0,0,0.5)'
                 }}
               >
-                <QRCodeCanvas value={ticket.ticket_code} size={170} level="H" includeMargin={true} />
+                <QRCodeSVG value={ticket.ticket_code} size={170} level="H" includeMargin={true} />
               </motion.div>
 
               <div className="badge-warning-box" style={{

@@ -4,10 +4,11 @@ import { QRCodeCanvas } from 'qrcode.react';
 import StudentPortal from './StudentPortal';
 import AdminDashboard from './AdminDashboard';
 import UsherScanner from './UsherScanner';
+import NotificationsLog from './NotificationsLog';
 import BackgroundAmbient from './BackgroundAmbient';
 import { supabase } from './lib/supabase';
 import { checkPinRateLimit, recordFailedPinAttempt, resetPinAttempts, sanitizeText } from './lib/security';
-import { broadcastCloudUpdate, listenToCloudUpdates } from './lib/cloudSync';
+import { broadcastCloudUpdate, broadcastLogEntry, broadcastDeleteLogs, broadcastClearLogs, listenToCloudUpdates } from './lib/cloudSync';
 
 export const ADMIN_ACCOUNTS = [
   {
@@ -34,59 +35,9 @@ const DELETED_KEY = 'ursp_masterlist_deleted_v5';
 // Encrypted Secret Token for Secure Admin URL Access (prevents spoofing via raw ?view=admin)
 export const SECURE_ADMIN_HASH = 'urs2026_sec_9f8a3c42e1d7';
 
-// 3 Clean, Working Level-Compliant Attendee Records (1 per College Division)
-export const DEFAULT_CLEAN_ATTENDEES = [
-  { 
-    id: 'CB-01', 
-    ticket_code: 'URS-20001', 
-    student_id: '2024-01001', 
-    full_name: 'Abad, Christian Paul', 
-    department: 'College of Business', 
-    year_level: '1st Year', 
-    program_section: 'BSBA 1-A', 
-    payment_status: 'paid', 
-    day1_status: 'attended', 
-    day1_time: '08:14 AM', 
-    day2_status: 'not_attended', 
-    day2_time: null, 
-    attendance_status: 'attended',
-    created_at: '2026-08-27T08:14:00.000Z'
-  },
-  { 
-    id: 'COED-01', 
-    ticket_code: 'URS-30001', 
-    student_id: '2024-02001', 
-    full_name: 'Alano, Kimberly Joyce', 
-    department: 'College of Education', 
-    year_level: '1st Year', 
-    program_section: 'BSED 1-A', 
-    payment_status: 'paid', 
-    day1_status: 'attended', 
-    day1_time: '08:10 AM', 
-    day2_status: 'not_attended', 
-    day2_time: null, 
-    attendance_status: 'attended',
-    created_at: '2026-08-27T08:10:00.000Z'
-  },
-  { 
-    id: 'CSS-01', 
-    ticket_code: 'URS-40001', 
-    student_id: '2024-03001', 
-    full_name: 'Agustin, Cedric Liam', 
-    department: 'College of Social Sciences', 
-    year_level: '1st Year', 
-    program_section: 'BS-PSYCH 1-A', 
-    payment_status: 'unpaid', 
-    day1_status: 'not_attended', 
-    day1_time: null, 
-    day2_status: 'not_attended', 
-    day2_time: null, 
-    attendance_status: 'not_attended',
-    created_at: '2026-08-27T08:05:00.000Z'
-  }
-];
-
-const SEED_FALLBACK = DEFAULT_CLEAN_ATTENDEES;
+// No hardcoded seed data — Supabase is the single source of truth.
+// Empty array prevents deleted accounts from resurrecting on new devices.
+export const DEFAULT_CLEAN_ATTENDEES = [];
 
 function getDeletedCodes() {
   try {
@@ -126,7 +77,16 @@ function normalizeTicket(t) {
 function getStoredTickets() {
   const deletedSet = getDeletedCodes();
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    // Try v5 key first (canonical), then migrate from legacy v4 key
+    let raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      raw = localStorage.getItem('ursp_masterlist_attendees_v4');
+      if (raw) {
+        // Migrate v4 → v5 and clean up legacy key
+        localStorage.setItem(STORAGE_KEY, raw);
+        localStorage.removeItem('ursp_masterlist_attendees_v4');
+      }
+    }
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -137,7 +97,8 @@ function getStoredTickets() {
   } catch (e) {
     console.warn('Could not read localStorage:', e);
   }
-  return DEFAULT_CLEAN_ATTENDEES.filter(t => !deletedSet.has(t.ticket_code)).map(normalizeTicket);
+  // Return empty — Supabase sync will populate real data shortly after mount
+  return [];
 }
 
 function saveStoredTickets(ticketsList) {
@@ -189,6 +150,11 @@ export default function App() {
     const token = params.get('token');
     const secKey = params.get('sec_key') || params.get('sec_token') || params.get('auth_key');
     
+    if (path.includes('logs') || viewParam === 'logs') {
+      const isAuthed = sessionStorage.getItem('ursp_admin_authed') === 'true';
+      if (isAuthed) return 'logs';
+      return 'student';
+    }
     if (path.includes('admin') || viewParam === 'admin' || viewParam === 'sec_admin_9f8a3c42e1') {
       const isAuthed = sessionStorage.getItem('ursp_admin_authed') === 'true';
       if (isAuthed) return 'admin';
@@ -207,6 +173,31 @@ export default function App() {
   const [tickets, setTickets] = useState(getStoredTickets);
   const [livePings, setLivePings] = useState([]);
   const [highlightedCode, setHighlightedCode] = useState(null);
+  const [activityLog, setActivityLog] = useState(() => {
+    try {
+      const raw = localStorage.getItem('ursp_activity_log_v1');
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) { return []; }
+  });
+
+  // Device fingerprint for log entries
+  const deviceLabel = /Mobi|Android|iPhone/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop';
+
+  const addLogEntry = (entry) => {
+    const logItem = {
+      id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+      ...entry,
+      actor: entry.actor || adminSession?.name || 'Student Portal',
+      device: entry.device || deviceLabel,
+      timestamp: entry.timestamp || new Date().toISOString()
+    };
+    setActivityLog(prev => {
+      const updated = [logItem, ...prev].slice(0, 200);
+      try { localStorage.setItem('ursp_activity_log_v1', JSON.stringify(updated)); } catch (e) {}
+      return updated;
+    });
+    broadcastLogEntry(logItem);
+  };
 
   // Single Unified Toast System (Strictly 1 Toast with Dynamic +3s Extension per new inquiry/registree)
   const [activeToast, setActiveToast] = useState(null);
@@ -525,14 +516,37 @@ export default function App() {
         setRegistrationLocked(locked);
         try { localStorage.setItem('ursp_registration_locked', String(locked)); } catch(e) {}
       }
+    }, (logUpdate) => {
+      // Activity log sync from cloud (adds, deletes, clears, or full sync)
+      if (!logUpdate || !isMounted) return;
+      setActivityLog(prev => {
+        let updated = prev;
+        if (Array.isArray(logUpdate)) {
+          updated = logUpdate.slice(0, 1000);
+        } else if (logUpdate.action === 'sync_all' && Array.isArray(logUpdate.logs)) {
+          updated = logUpdate.logs.slice(0, 1000);
+        } else if (logUpdate.action === 'add' && logUpdate.logEntry) {
+          if (!prev.some(l => l.id === logUpdate.logEntry.id)) {
+            updated = [logUpdate.logEntry, ...prev].slice(0, 1000);
+          }
+        } else if (logUpdate.action === 'delete' && Array.isArray(logUpdate.deleteLogIds)) {
+          const idSet = new Set(logUpdate.deleteLogIds);
+          updated = prev.filter(l => !idSet.has(l.id));
+        } else if (logUpdate.action === 'clear') {
+          updated = [];
+        }
+        try { localStorage.setItem('ursp_activity_log_v1', JSON.stringify(updated)); } catch (e) {}
+        return updated;
+      });
     });
 
     const handleStorage = (e) => {
       if (e.key === STORAGE_KEY && e.newValue) {
         try {
+          const deletedSet = getDeletedCodes();
           const fresh = JSON.parse(e.newValue);
           if (Array.isArray(fresh)) {
-            setTickets(fresh.map(normalizeTicket));
+            setTickets(fresh.filter(t => !deletedSet.has(t.ticket_code)).map(normalizeTicket));
           }
         } catch (err) {}
       }
@@ -592,6 +606,17 @@ export default function App() {
       return nextList;
     });
 
+    // Activity Log
+    if (record && !record._logged) {
+      addLogEntry({
+        type: 'registration',
+        title: '🎉 STUDENT REGISTERED',
+        message: `${record.full_name} (${record.student_id} • ${record.ticket_code}) registered.`,
+        ticket_code: record.ticket_code,
+        department: record.department
+      });
+    }
+
     // Idempotent Supabase Cloud Sync (Ensures 0 duplicate rows in cloud database)
     try {
       if (supabase && typeof supabase.from === 'function' && record) {
@@ -627,6 +652,14 @@ export default function App() {
       return nextList;
     });
 
+    addLogEntry({
+      type: 'payment',
+      title: ping?.title || (nextStatus === 'paid' ? '💳 PAYMENT VERIFIED' : '⏳ PAYMENT REVERTED'),
+      message: ping?.message || `Ticket ${code} marked as ${nextStatus.toUpperCase()}.`,
+      ticket_code: code,
+      department: ping?.department
+    });
+
     // Supabase DB Sync
     try {
       if (supabase && typeof supabase.from === 'function') {
@@ -647,6 +680,12 @@ export default function App() {
       const nextList = prev.map(t => (section === 'ALL' || t.program_section === section) ? { ...t, payment_status: 'paid' } : t);
       broadcastUpdate(nextList, ping);
       return nextList;
+    });
+
+    addLogEntry({
+      type: 'bulk_payment',
+      title: '💰 BULK SECTION VERIFIED',
+      message: `All students in section "${section}" verified as Paid.`
     });
 
     // Supabase DB Sync
@@ -696,6 +735,14 @@ export default function App() {
       return nextList;
     });
 
+    addLogEntry({
+      type: 'admission',
+      title: `⚡ GATE ADMISSION (${targetDay === 'day1' ? 'DAY 1' : 'DAY 2'})`,
+      message: `${updatedRecord?.full_name || code} entered venue at ${timeString} (PST).`,
+      ticket_code: code,
+      department: updatedRecord?.department
+    });
+
     // Supabase DB Sync
     try {
       if (supabase && typeof supabase.from === 'function' && updatedRecord) {
@@ -726,6 +773,14 @@ export default function App() {
       } : null;
       broadcastUpdate(nextList, ping);
       return nextList;
+    });
+
+    addLogEntry({
+      type: 'deletion',
+      title: '🗑️ ATTENDEE REMOVED',
+      message: `${deleted?.full_name || code} (${deleted?.student_id || ''} • ${code}) removed by ${adminSession?.name || 'Admin'}.`,
+      ticket_code: code,
+      department: deleted?.department
     });
 
     // Real-Time Supabase Database Row Deletion
@@ -774,6 +829,12 @@ export default function App() {
       return nextList;
     });
 
+    addLogEntry({
+      type: 'deletion',
+      title: `🗑️ ${codesToDelete.length} ATTENDEES DELETED`,
+      message: `Batch of ${codesToDelete.length} student record(s) deleted by ${adminSession?.name || 'Admin'}.`
+    });
+
     // Real-Time Supabase Batch Deletion
     try {
       if (supabase && typeof supabase.from === 'function') {
@@ -795,15 +856,38 @@ export default function App() {
         title: next ? '🔒 REGISTRATION CLOSED' : '🔓 REGISTRATION OPENED',
         message: next ? 'The official registration portal has been closed by SSG Admin.' : 'The official registration portal is now open for students!'
       }, next);
+      addLogEntry({
+        type: 'lock',
+        title: next ? '🔒 REGISTRATION LOCKED' : '🔓 REGISTRATION UNLOCKED',
+        message: next ? 'Registration portal closed by SSG Admin.' : 'Registration portal opened for students.'
+      });
       return next;
     });
   };
 
 
 
+  // Activity log deletion handlers
+  const handleDeleteLogs = (logIds) => {
+    if (!Array.isArray(logIds) || logIds.length === 0) return;
+    const idSet = new Set(logIds);
+    setActivityLog(prev => {
+      const next = prev.filter(l => !idSet.has(l.id));
+      try { localStorage.setItem('ursp_activity_log_v1', JSON.stringify(next)); } catch (e) {}
+      return next;
+    });
+    broadcastDeleteLogs(logIds);
+  };
+
+  const handleClearAllLogs = () => {
+    setActivityLog([]);
+    try { localStorage.removeItem('ursp_activity_log_v1'); } catch (e) {}
+    broadcastClearLogs();
+  };
+
   const handleNavigate = (newRoute) => {
-    if (newRoute === 'admin' && !isAdminAuthed) {
-      setPendingRoute('admin');
+    if ((newRoute === 'admin' || newRoute === 'logs') && !isAdminAuthed) {
+      setPendingRoute(newRoute);
       setPinError('');
       setPinInput('');
       setShowPinModal(true);
@@ -1006,7 +1090,7 @@ export default function App() {
             <div className="global-brand-text">
               <span className="global-brand-title">URSPANTROPIKO 2026</span>
               <span className="global-brand-sub">
-                {route === 'student' ? 'Student Registration Portal' : route === 'admin' ? '🛡️ SSG Master Control Suite' : '📱 Gate Usher Scanner'}
+                {route === 'student' ? 'Student Registration Portal' : route === 'admin' ? '🛡️ SSG Master Control Suite' : route === 'logs' ? '📡 Live Activity & Audit Feed' : '📱 Gate Usher Scanner'}
               </span>
             </div>
           </div>
@@ -1042,6 +1126,18 @@ export default function App() {
               >
                 🛡️ Admin Dashboard
                 <span className="global-nav-badge">{tickets.length}</span>
+              </button>
+              <button
+                className={`global-nav-btn ${route === 'logs' ? 'active' : ''}`}
+                onClick={() => handleNavigate('logs')}
+                title="View live real-time activity and audit feed across all devices"
+              >
+                📡 Live Activity
+                {activityLog.length > 0 && (
+                  <span className="global-nav-badge" style={{ background: '#38BDF8', color: '#000' }}>
+                    {activityLog.length > 99 ? '99+' : activityLog.length}
+                  </span>
+                )}
               </button>
               <button
                 className={`global-nav-btn ${route === 'usher' ? 'active' : ''}`}
@@ -1096,6 +1192,16 @@ export default function App() {
             onAdminLogout={handleLockAdmin}
             livePings={livePings}
             highlightedCode={highlightedCode}
+          />
+        )}
+        
+        {route === 'logs' && (
+          <NotificationsLog
+            activityLog={activityLog}
+            totalAttendees={tickets.length}
+            onDeleteLogs={handleDeleteLogs}
+            onClearAllLogs={handleClearAllLogs}
+            onNavigate={handleNavigate}
           />
         )}
         

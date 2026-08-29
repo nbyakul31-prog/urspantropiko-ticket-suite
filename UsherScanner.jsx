@@ -63,7 +63,7 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
   useEffect(() => {
     const loadCached = () => {
       try {
-        const cached = localStorage.getItem('ursp_masterlist_attendees_v4') || localStorage.getItem('cachedEventTickets');
+        const cached = localStorage.getItem('ursp_masterlist_attendees_v5') || localStorage.getItem('cachedEventTickets');
         if (cached) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed) && parsed.length > 0) {
@@ -82,7 +82,7 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
     if (tickets && tickets.length > 0) {
       setCachedTickets(tickets);
       try {
-        localStorage.setItem('ursp_masterlist_attendees_v4', JSON.stringify(tickets));
+        localStorage.setItem('ursp_masterlist_attendees_v5', JSON.stringify(tickets));
       } catch (err) {}
     }
   }, [tickets]);
@@ -238,12 +238,17 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
     }
   };
 
-  const updateLocalCacheAndQueueAdmission = (ticketCode) => {
-    // Update local cache
+  const updateLocalCacheAndQueueAdmission = (ticketCode, day, time) => {
+    // Update local cache with day-specific fields
     setCachedTickets(prev => {
       const updated = prev.map(t =>
         t.ticket_code === ticketCode
-          ? { ...t, attendance_status: 'attended', attended_at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+          ? {
+              ...t,
+              [day === 'day1' ? 'day1_status' : 'day2_status']: 'attended',
+              [day === 'day1' ? 'day1_time' : 'day2_time']: time,
+              attendance_status: 'attended'
+            }
           : t
       );
       // Save to localStorage
@@ -259,6 +264,8 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
     const queueItem = {
       type: 'ADMIT',
       ticketCode: ticketCode,
+      day: day,
+      time: time,
       timestamp: new Date().toISOString()
     };
 
@@ -279,7 +286,7 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
       // Process each queued admission
       queue.forEach(item => {
         if (item.type === 'ADMIT') {
-          onAdmitStudent(item.ticketCode);
+          onAdmitStudent(item.ticketCode, item.day || 'day1', item.time || null);
         }
       });
 
@@ -647,14 +654,14 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
 
             <div className="mt-2 text-xs text-muted">{currentResult.msg}</div>
 
-            {currentResult.type === 'success' && currentResult.student.attendance_status !== 'attended' && (
+            {currentResult.type === 'success' && (activeDay === 'day1' ? currentResult.student.day1_status !== 'attended' : currentResult.student.day2_status !== 'attended') && (
               <motion.button
                 className="btn btn-success w-full mt-4 font-bold text-lg"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={confirmAdmit}
               >
-                ✓ Tap to Check-In & Admit
+                ✓ Tap to Check-In & Admit ({activeDayLabel})
               </motion.button>
             )}
 
