@@ -469,11 +469,24 @@ export default function App() {
       }
     } catch (err) {}
 
-    // Seed Vercel Cloud Relay on mount if this device holds attendees
+    // Seed Vercel Cloud Relay on mount if this device holds attendees or activity logs
     const localSeed = getStoredTickets();
     if (localSeed && localSeed.length > 0) {
       broadcastCloudUpdate(localSeed);
     }
+    try {
+      const rawLogs = localStorage.getItem('ursp_activity_log_v1');
+      if (rawLogs) {
+        const localLogs = JSON.parse(rawLogs);
+        if (Array.isArray(localLogs) && localLogs.length > 0) {
+          fetch('/api/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ activityLog: localLogs })
+          }).catch(() => {});
+        }
+      }
+    } catch (e) {}
 
     // 3. Real-Time Cloud Listener for Cross-Device Sync (Phone <-> PC Admin)
     const cleanupCloudSync = listenToCloudUpdates((cloudTickets, ping) => {
@@ -505,8 +518,19 @@ export default function App() {
       setActivityLog(prev => {
         let updated = prev;
         if (logUpdate.action === 'sync_all' && Array.isArray(logUpdate.logs)) {
-          // Direct sync: Server is the source of truth for active logs across devices
-          updated = logUpdate.logs;
+          if (logUpdate.logs.length > 0) {
+            updated = logUpdate.logs;
+          } else {
+            // Cold start protection: If cloud returns empty logs but device has local logs, re-seed cloud instead of wiping!
+            if (prev.length > 0) {
+              fetch('/api/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ activityLog: prev })
+              }).catch(() => {});
+              return prev;
+            }
+          }
         } else if (logUpdate.action === 'add' && logUpdate.logEntry) {
           if (!prev.some(l => l.id === logUpdate.logEntry.id)) {
             updated = [logUpdate.logEntry, ...prev].slice(0, 1000);
