@@ -30,38 +30,18 @@ export const ADMIN_ACCOUNTS = [
 ];
 
 const STORAGE_KEY = 'ursp_masterlist_attendees_v5';
-const DELETED_KEY = 'ursp_masterlist_deleted_v5';
+
+// Clear any stale local deletion blacklists from previous builds
+try {
+  localStorage.removeItem('ursp_masterlist_deleted_v5');
+  localStorage.removeItem('ursp_masterlist_deleted_v4');
+} catch (e) {}
 
 // Encrypted Secret Token for Secure Admin URL Access (prevents spoofing via raw ?view=admin)
 export const SECURE_ADMIN_HASH = 'urs2026_sec_9f8a3c42e1d7';
 
 // No hardcoded seed data — Supabase is the single source of truth.
-// Empty array prevents deleted accounts from resurrecting on new devices.
 export const DEFAULT_CLEAN_ATTENDEES = [];
-
-function getDeletedCodes() {
-  try {
-    const raw = localStorage.getItem(DELETED_KEY);
-    if (raw) return new Set(JSON.parse(raw));
-  } catch (e) {}
-  return new Set();
-}
-
-function recordDeletedCode(code) {
-  try {
-    const set = getDeletedCodes();
-    set.add(code);
-    localStorage.setItem(DELETED_KEY, JSON.stringify(Array.from(set)));
-  } catch (e) {}
-}
-
-function unrecordDeletedCode(code) {
-  try {
-    const set = getDeletedCodes();
-    set.delete(code);
-    localStorage.setItem(DELETED_KEY, JSON.stringify(Array.from(set)));
-  } catch (e) {}
-}
 
 function normalizeTicket(t) {
   if (!t || typeof t !== 'object') return null;
@@ -82,14 +62,11 @@ function normalizeTicket(t) {
 }
 
 function getStoredTickets() {
-  const deletedSet = getDeletedCodes();
   try {
-    // Try v5 key first (canonical), then migrate from legacy v4 key
     let raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       raw = localStorage.getItem('ursp_masterlist_attendees_v4');
       if (raw) {
-        // Migrate v4 → v5 and clean up legacy key
         localStorage.setItem(STORAGE_KEY, raw);
         localStorage.removeItem('ursp_masterlist_attendees_v4');
       }
@@ -97,20 +74,21 @@ function getStoredTickets() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        const active = parsed.filter(t => t && t.ticket_code && !deletedSet.has(t.ticket_code)).map(normalizeTicket).filter(Boolean);
+        const active = parsed.filter(t => t && t.ticket_code).map(normalizeTicket).filter(Boolean);
         if (active.length > 0) return active;
       }
     }
   } catch (e) {
     console.warn('Could not read localStorage:', e);
   }
-  // Return empty — Supabase sync will populate real data shortly after mount
   return [];
 }
 
 function saveStoredTickets(ticketsList) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(ticketsList));
+    if (Array.isArray(ticketsList)) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(ticketsList));
+    }
   } catch (e) {
     console.warn('Could not save to localStorage:', e);
   }
@@ -409,16 +387,14 @@ export default function App() {
 
     // 1. Query Supabase Remote DB upon loading (Syncs offline registrations seamlessly)
     async function syncFromSupabase() {
-      const deletedSet = getDeletedCodes();
       try {
         if (supabase && typeof supabase.from === 'function') {
           const { data, error } = await supabase.from('attendees').select('*').order('created_at', { ascending: false });
           if (!error && Array.isArray(data) && isMounted) {
-            setTickets(() => {
-              const active = data.filter(t => t && t.ticket_code && !deletedSet.has(t.ticket_code)).map(normalizeTicket).filter(Boolean);
-              saveStoredTickets(active);
-              return active;
-            });
+            const active = data.filter(t => t && t.ticket_code).map(normalizeTicket).filter(Boolean);
+            setTickets(active);
+            saveStoredTickets(active);
+            broadcastCloudUpdate(active);
           }
         }
       } catch (err) {
@@ -435,9 +411,9 @@ export default function App() {
         channel = supabase
           .channel('public_attendees_live_feed')
           .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendees' }, payload => {
-            const deletedSet = getDeletedCodes();
-            if (payload.new && !deletedSet.has(payload.new.ticket_code) && isMounted) {
+            if (payload.new && isMounted) {
               const newRecord = normalizeTicket(payload.new);
+              if (!newRecord) return;
               setTickets(prev => {
                 if (prev.some(t => t.ticket_code === newRecord.ticket_code)) return prev;
                 const next = [newRecord, ...prev];
@@ -455,9 +431,6 @@ export default function App() {
           })
           .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'attendees' }, payload => {
             if (payload.old && isMounted) {
-              if (payload.old.ticket_code) {
-                recordDeletedCode(payload.old.ticket_code);
-              }
               setTickets(prev => {
                 const next = prev.filter(t => {
                   if (payload.old.ticket_code && t.ticket_code === payload.old.ticket_code) return false;
@@ -470,10 +443,11 @@ export default function App() {
             }
           })
           .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'attendees' }, payload => {
-            const deletedSet = getDeletedCodes();
-            if (payload.new && !deletedSet.has(payload.new.ticket_code) && isMounted) {
+            if (payload.new && isMounted) {
+              const updated = normalizeTicket(payload.new);
+              if (!updated) return;
               setTickets(prev => {
-                const next = prev.map(t => t.ticket_code === payload.new.ticket_code ? normalizeTicket(payload.new) : t);
+                const next = prev.map(t => t.ticket_code === updated.ticket_code ? updated : t);
                 saveStoredTickets(next);
                 return next;
               });
@@ -485,19 +459,12 @@ export default function App() {
 
     // 3. Real-Time Cloud Listener for Cross-Device Sync (Phone <-> PC Admin)
     const cleanupCloudSync = listenToCloudUpdates((cloudTickets, ping) => {
-      const deletedSet = getDeletedCodes();
       if (Array.isArray(cloudTickets) && isMounted) {
-        setTickets(() => {
-          const active = cloudTickets.filter(t => t && t.ticket_code && !deletedSet.has(t.ticket_code)).map(normalizeTicket).filter(Boolean);
-          saveStoredTickets(active);
-          return active;
-        });
+        const active = cloudTickets.filter(t => t && t.ticket_code).map(normalizeTicket).filter(Boolean);
+        setTickets(active);
+        saveStoredTickets(active);
       }
       if (ping && isMounted) {
-        if (ping.type === 'deletion' && ping.ticket_code) {
-          recordDeletedCode(ping.ticket_code);
-          setTickets(prev => prev.filter(t => t.ticket_code !== ping.ticket_code));
-        }
         addLivePing(ping);
       }
     }, (locked) => {
@@ -527,26 +494,14 @@ export default function App() {
         try { localStorage.setItem('ursp_activity_log_v1', JSON.stringify(updated)); } catch (e) {}
         return updated;
       });
-    }, (incomingDeletedCodes) => {
-      // Real-time deletion blacklist sync across all devices
-      if (Array.isArray(incomingDeletedCodes) && incomingDeletedCodes.length > 0 && isMounted) {
-        incomingDeletedCodes.forEach(c => recordDeletedCode(c));
-        const delSet = new Set(incomingDeletedCodes);
-        setTickets(prev => {
-          const next = prev.filter(t => !delSet.has(t.ticket_code));
-          saveStoredTickets(next);
-          return next;
-        });
-      }
     });
 
     const handleStorage = (e) => {
       if (e.key === STORAGE_KEY && e.newValue) {
         try {
-          const deletedSet = getDeletedCodes();
           const fresh = JSON.parse(e.newValue);
           if (Array.isArray(fresh)) {
-            setTickets(fresh.filter(t => !deletedSet.has(t.ticket_code)).map(normalizeTicket));
+            setTickets(fresh.filter(t => t && t.ticket_code).map(normalizeTicket).filter(Boolean));
           }
         } catch (err) {}
       }
@@ -564,9 +519,9 @@ export default function App() {
     };
   }, []);
 
-  const broadcastUpdate = (newTicketsList, ping = null, deletedCodes = null) => {
+  const broadcastUpdate = (newTicketsList, ping = null) => {
     saveStoredTickets(newTicketsList);
-    broadcastCloudUpdate(newTicketsList, ping, null, deletedCodes);
+    broadcastCloudUpdate(newTicketsList, ping);
     if (ping) {
       addLivePing(ping);
     }
@@ -781,7 +736,7 @@ export default function App() {
       department: targetToDelete?.department
     };
 
-    broadcastUpdate(nextList, ping, [code]);
+    broadcastUpdate(nextList, ping);
 
     addLogEntry({
       type: 'deletion',
@@ -840,7 +795,7 @@ export default function App() {
       title: `🗑️ ${codesToDelete.length} ATTENDEES DELETED`,
       message: `Batch of ${codesToDelete.length} student record(s) deleted by ${adminSession?.name || 'Admin'}.`
     };
-    broadcastUpdate(nextList, ping, codesToDelete);
+    broadcastUpdate(nextList, ping);
 
     addLogEntry({
       type: 'deletion',

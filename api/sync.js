@@ -1,8 +1,7 @@
 // Serverless In-Memory Cloud Sync State for URSPantropiko Ticket Suite
-// Synchronizes Attendees, Deletion Blacklist, Activity Logs, and Registration Lock in Real-Time
+// Ephemeral cross-device relay for Attendees, Activity Logs, and Registration Lock State
 
-let cachedAttendees = [];
-let cachedDeletedCodes = new Set();
+let cachedAttendees = null;
 let cachedRegistrationLocked = false;
 let cachedActivityLog = [];
 
@@ -42,23 +41,13 @@ export default function handler(req, res) {
     try {
       const data = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 
-      // Handle recorded deletions (Blacklist)
-      if (data && Array.isArray(data.deletedCodes)) {
-        data.deletedCodes.forEach(code => {
-          if (code) cachedDeletedCodes.add(String(code));
-        });
-      }
-      if (data && data.deleteTicketCode) {
-        cachedDeletedCodes.add(String(data.deleteTicketCode));
-      }
-
-      // Handle ticket list sync
+      // Handle full ticket list sync (authoritative from client)
       if (Array.isArray(data)) {
-        cachedAttendees = data.filter(t => t && t.ticket_code && !cachedDeletedCodes.has(t.ticket_code));
+        cachedAttendees = data.filter(t => t && t.ticket_code);
       } else if (data && data.tickets && Array.isArray(data.tickets)) {
-        cachedAttendees = data.tickets.filter(t => t && t.ticket_code && !cachedDeletedCodes.has(t.ticket_code));
+        cachedAttendees = data.tickets.filter(t => t && t.ticket_code);
       } else if (data && data.attendee && data.attendee.ticket_code) {
-        cachedDeletedCodes.delete(data.attendee.ticket_code);
+        if (!cachedAttendees) cachedAttendees = [];
         cachedAttendees = [
           data.attendee,
           ...cachedAttendees.filter(a => a && a.ticket_code !== data.attendee.ticket_code && a.student_id !== data.attendee.student_id)
@@ -92,9 +81,8 @@ export default function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        count: cachedAttendees.length,
-        data: cachedAttendees,
-        deletedCodes: Array.from(cachedDeletedCodes),
+        count: (cachedAttendees || []).length,
+        data: cachedAttendees || [],
         activityLog: cachedActivityLog,
         registrationLocked: cachedRegistrationLocked
       });
@@ -106,8 +94,7 @@ export default function handler(req, res) {
   // GET: Return current sync state
   return res.status(200).json({
     success: true,
-    data: (cachedAttendees || []).filter(t => t && t.ticket_code && !cachedDeletedCodes.has(t.ticket_code)),
-    deletedCodes: Array.from(cachedDeletedCodes),
+    data: cachedAttendees || [],
     activityLog: cachedActivityLog || [],
     registrationLocked: cachedRegistrationLocked
   });
