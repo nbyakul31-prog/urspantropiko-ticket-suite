@@ -59,10 +59,11 @@ function appendLogEntry(state, entry) {
   // 1. Deduplicate by exact ID
   if (state.activityLog.some(l => l && l.id === entryId)) return;
 
-  // 2. Deduplicate by semantic action signature within 15 seconds
+  // 2. Deduplicate by semantic action signature within 15 seconds (distinguishing day1 vs day2)
   const isDuplicate = state.activityLog.some(l => {
     if (!l) return false;
     if (l.type !== entry.type) return false;
+    if (entry.title && l.title && entry.title !== l.title) return false; // Different day/action
     if (entry.ticket_code && l.ticket_code === entry.ticket_code) {
       const diff = Math.abs(new Date(l.timestamp || 0).getTime() - new Date(entry.timestamp || Date.now()).getTime());
       return diff < 15000;

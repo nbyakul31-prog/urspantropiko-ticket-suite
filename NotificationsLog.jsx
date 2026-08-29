@@ -84,10 +84,10 @@ export default function NotificationsLog({
     return activityLog.filter(log => {
       if (!log || !log.id) return false;
 
-      // Deduplicate identical action entries (same type + ticket_code + timestamp minute)
+      // Deduplicate identical action entries (same type + title + ticket_code + timestamp minute)
       const timeKey = log.timestamp ? log.timestamp.substring(0, 16) : '';
-      const sig = `${log.id}_${log.type}_${log.ticket_code || log.title}_${timeKey}`;
-      const semanticSig = `${log.type}_${log.ticket_code || log.message}_${timeKey}`;
+      const sig = `${log.id}_${log.type}_${log.title || ''}_${log.ticket_code || ''}_${timeKey}`;
+      const semanticSig = `${log.type}_${log.title || ''}_${log.ticket_code || log.message}_${timeKey}`;
       if (seenSignatures.has(sig) || seenSignatures.has(semanticSig)) {
         return false;
       }

@@ -686,24 +686,24 @@ export default function App() {
     const timeString = customTime || getPHShortTime();
     let ping = null;
     let updatedRecord = null;
+    const isDay1 = targetDay === 'day1';
 
     setTickets(prev => {
       const nextList = prev.map(t => {
         if (t.ticket_code === code) {
-          const isDay1 = targetDay === 'day1';
           const updated = {
             ...t,
-            day1_status: isDay1 ? 'attended' : t.day1_status,
-            day1_time: isDay1 ? timeString : t.day1_time,
-            day2_status: !isDay1 ? 'attended' : t.day2_status,
-            day2_time: !isDay1 ? timeString : t.day2_time,
-            attendance_status: 'attended'
+            day1_status: isDay1 ? (customTime === null && t.day1_status === 'attended' ? 'not_attended' : 'attended') : t.day1_status,
+            day1_time: isDay1 ? (customTime === null && t.day1_status === 'attended' ? null : timeString) : t.day1_time,
+            day2_status: !isDay1 ? (customTime === null && t.day2_status === 'attended' ? 'not_attended' : 'attended') : t.day2_status,
+            day2_time: !isDay1 ? (customTime === null && t.day2_status === 'attended' ? null : timeString) : t.day2_time,
           };
+          updated.attendance_status = (updated.day1_status === 'attended' || updated.day2_status === 'attended') ? 'attended' : 'not_attended';
           updatedRecord = updated;
           ping = {
             type: 'admission',
-            title: `⚡ GATE ADMISSION (${targetDay === 'day1' ? 'DAY 1' : 'DAY 2'})`,
-            message: `${t.full_name} entered the venue at ${timeString} (PST)!`,
+            title: `⚡ GATE ADMISSION (${isDay1 ? 'DAY 1' : 'DAY 2'})`,
+            message: `${t.full_name} entered the venue for ${isDay1 ? 'Day 1' : 'Day 2'} at ${timeString} (PST)!`,
             ticket_code: code,
             department: t.department,
             day: targetDay
@@ -716,13 +716,15 @@ export default function App() {
       return nextList;
     });
 
-    addLogEntry({
-      type: 'admission',
-      title: `⚡ GATE ADMISSION (${targetDay === 'day1' ? 'DAY 1' : 'DAY 2'})`,
-      message: `${updatedRecord?.full_name || code} entered venue at ${timeString} (PST).`,
-      ticket_code: code,
-      department: updatedRecord?.department
-    });
+    if (updatedRecord && (isDay1 ? updatedRecord.day1_status === 'attended' : updatedRecord.day2_status === 'attended')) {
+      addLogEntry({
+        type: 'admission',
+        title: `⚡ GATE ADMISSION (${isDay1 ? 'DAY 1' : 'DAY 2'})`,
+        message: `${updatedRecord.full_name || code} entered venue at ${timeString} (PST).`,
+        ticket_code: code,
+        department: updatedRecord.department
+      });
+    }
 
     // Supabase DB Sync
     try {
@@ -732,7 +734,7 @@ export default function App() {
           day1_time: updatedRecord.day1_time,
           day2_status: updatedRecord.day2_status,
           day2_time: updatedRecord.day2_time,
-          attendance_status: 'attended'
+          attendance_status: updatedRecord.attendance_status
         }).eq('ticket_code', code).then(() => {}).catch(() => {});
       }
     } catch (e) {}
