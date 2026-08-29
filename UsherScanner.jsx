@@ -426,12 +426,12 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
             </span>
           </div>
 
-          {/* 2-Day Event Gate Switcher */}
+          {/* Day Toggle: Clean 2-Way Day 1 vs Day 2 Selector */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '6px',
-            background: 'rgba(0,0,0,0.45)',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '8px',
+            background: 'rgba(0,0,0,0.4)',
             padding: '6px',
             borderRadius: '12px',
             border: '1px solid rgba(255,255,255,0.1)',
@@ -439,60 +439,43 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
           }}>
             <button
               type="button"
-              onClick={() => setDaySelectionMode('auto')}
-              style={{
-                background: daySelectionMode === 'auto' ? '#FFD100' : 'rgba(255,255,255,0.06)',
-                color: daySelectionMode === 'auto' ? '#000' : '#E2E8F0',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '6px 4px',
-                fontSize: '10.5px',
-                fontWeight: '800',
-                cursor: 'pointer',
-                textAlign: 'center',
-                lineHeight: 1.2,
-                transition: 'all 0.2s ease'
-              }}
-            >
-              ⚡ Auto ({getAutoPHDay() === 'day1' ? 'D1' : 'D2'})
-            </button>
-            <button
-              type="button"
               onClick={() => setDaySelectionMode('day1')}
               style={{
-                background: activeDay === 'day1' && daySelectionMode !== 'auto' ? '#F59E0B' : 'rgba(255,255,255,0.06)',
-                color: activeDay === 'day1' && daySelectionMode !== 'auto' ? '#000' : '#E2E8F0',
+                background: activeDay === 'day1' ? '#F59E0B' : 'rgba(255,255,255,0.06)',
+                color: activeDay === 'day1' ? '#000' : '#E2E8F0',
                 border: 'none',
                 borderRadius: '8px',
-                padding: '6px 4px',
-                fontSize: '10.5px',
+                padding: '8px 6px',
+                fontSize: '11px',
                 fontWeight: '800',
                 cursor: 'pointer',
                 textAlign: 'center',
                 lineHeight: 1.2,
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                boxShadow: activeDay === 'day1' ? '0 0 12px rgba(245, 158, 11, 0.4)' : 'none'
               }}
             >
-              🌅 Day 1 (17th)
+              🌅 DAY 1 (Sept 17)
             </button>
             <button
               type="button"
               onClick={() => setDaySelectionMode('day2')}
               style={{
-                background: activeDay === 'day2' && daySelectionMode !== 'auto' ? '#10B981' : 'rgba(255,255,255,0.06)',
-                color: activeDay === 'day2' && daySelectionMode !== 'auto' ? '#000' : '#E2E8F0',
+                background: activeDay === 'day2' ? '#10B981' : 'rgba(255,255,255,0.06)',
+                color: activeDay === 'day2' ? '#000' : '#E2E8F0',
                 border: 'none',
                 borderRadius: '8px',
-                padding: '6px 4px',
-                fontSize: '10.5px',
+                padding: '8px 6px',
+                fontSize: '11px',
                 fontWeight: '800',
                 cursor: 'pointer',
                 textAlign: 'center',
                 lineHeight: 1.2,
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                boxShadow: activeDay === 'day2' ? '0 0 12px rgba(16, 185, 129, 0.4)' : 'none'
               }}
             >
-              🌴 Day 2 (18th)
+              🌴 DAY 2 (Sept 18)
             </button>
           </div>
 

@@ -168,19 +168,35 @@ export default function App() {
   // Device fingerprint for log entries
   const deviceLabel = /Mobi|Android|iPhone/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop';
 
+  const lastLogMapRef = useRef(new Map());
+
   const addLogEntry = (entry) => {
+    if (!entry || !entry.type) return;
+
+    // Rate-limiting / deduplication: Prevent double-logging identical actions within 5s
+    const now = Date.now();
+    const actionKey = `${entry.type}_${entry.ticket_code || entry.title}`;
+    const lastTimestamp = lastLogMapRef.current.get(actionKey) || 0;
+    if (now - lastTimestamp < 5000) {
+      return; // Suppress duplicate event
+    }
+    lastLogMapRef.current.set(actionKey, now);
+
     const logItem = {
-      id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+      id: `log_${now}_${Math.random().toString(36).substring(2, 8)}`,
       ...entry,
       actor: entry.actor || adminSession?.name || 'Student Portal',
       device: entry.device || deviceLabel,
       timestamp: entry.timestamp || new Date().toISOString()
     };
+
     setActivityLog(prev => {
-      const updated = [logItem, ...prev].slice(0, 200);
+      if (prev.some(l => l && l.id === logItem.id)) return prev;
+      const updated = [logItem, ...prev].slice(0, 1000);
       try { localStorage.setItem('ursp_activity_log_v1', JSON.stringify(updated)); } catch (e) {}
       return updated;
     });
+
     broadcastLogEntry(logItem);
   };
 

@@ -78,9 +78,22 @@ export default function NotificationsLog({
     setSelectedIds(new Set());
   }, [activeCategory, searchQuery, rowsPerPage]);
 
-  // Filter and search
+  // Filter and search with automatic semantic deduplication
   const filteredLogs = useMemo(() => {
+    const seenSignatures = new Set();
     return activityLog.filter(log => {
+      if (!log || !log.id) return false;
+
+      // Deduplicate identical action entries (same type + ticket_code + timestamp minute)
+      const timeKey = log.timestamp ? log.timestamp.substring(0, 16) : '';
+      const sig = `${log.id}_${log.type}_${log.ticket_code || log.title}_${timeKey}`;
+      const semanticSig = `${log.type}_${log.ticket_code || log.message}_${timeKey}`;
+      if (seenSignatures.has(sig) || seenSignatures.has(semanticSig)) {
+        return false;
+      }
+      seenSignatures.add(sig);
+      seenSignatures.add(semanticSig);
+
       // Category check
       if (activeCategory !== 'all' && getFilterCategory(log.type) !== activeCategory) {
         return false;
@@ -101,13 +114,13 @@ export default function NotificationsLog({
 
   // Counts by category
   const categoryCounts = useMemo(() => {
-    const counts = { all: activityLog.length };
-    activityLog.forEach(log => {
+    const counts = { all: filteredLogs.length };
+    filteredLogs.forEach(log => {
       const cat = getFilterCategory(log.type);
       counts[cat] = (counts[cat] || 0) + 1;
     });
     return counts;
-  }, [activityLog]);
+  }, [filteredLogs]);
 
   // Pagination calculation
   const totalItems = filteredLogs.length;

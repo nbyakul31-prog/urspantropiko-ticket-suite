@@ -54,8 +54,25 @@ function persistState(updater) {
 
 function appendLogEntry(state, entry) {
   if (!entry || !entry.type) return;
+  const entryId = entry.id || `log_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+  // 1. Deduplicate by exact ID
+  if (state.activityLog.some(l => l && l.id === entryId)) return;
+
+  // 2. Deduplicate by semantic action signature within 15 seconds
+  const isDuplicate = state.activityLog.some(l => {
+    if (!l) return false;
+    if (l.type !== entry.type) return false;
+    if (entry.ticket_code && l.ticket_code === entry.ticket_code) {
+      const diff = Math.abs(new Date(l.timestamp || 0).getTime() - new Date(entry.timestamp || Date.now()).getTime());
+      return diff < 15000;
+    }
+    return false;
+  });
+  if (isDuplicate) return;
+
   const logItem = {
-    id: entry.id || `log_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+    id: entryId,
     type: entry.type,
     title: entry.title || '',
     message: entry.message || '',
