@@ -404,7 +404,7 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4 }}
       >
-        {/* Hero Poster Banner */}
+        {/* Hero Poster Banner with Central Floating SSG Logo */}
         <motion.div
           className="portal-poster-hero"
           initial={{ opacity: 0, scale: 0.96 }}
@@ -413,49 +413,119 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
           style={{
             position: 'relative',
             overflow: 'hidden',
-            borderRadius: '16px',
-            marginBottom: '16px',
-            boxShadow: '0 12px 35px rgba(0,0,0,0.6)',
-            border: '1.5px solid rgba(255, 209, 0, 0.4)'
+            borderRadius: '20px',
+            marginBottom: '14px',
+            boxShadow: '0 15px 40px rgba(0,0,0,0.6)',
+            border: '2px solid rgba(255, 209, 0, 0.45)',
+            background: '#0B132B'
           }}
         >
           <img
             src="/poster.jpg"
             alt="URSPANTROPIKO Acquaintance Party Poster"
             className="portal-poster-img"
-            style={{ width: '100%', height: 'auto', maxHeight: '260px', objectFit: 'cover', display: 'block' }}
+            style={{ width: '100%', height: 'auto', maxHeight: '280px', objectFit: 'cover', display: 'block' }}
           />
           <div className="portal-poster-overlay" style={{
             position: 'absolute',
             inset: 0,
-            background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)',
+            background: 'linear-gradient(to top, rgba(11,19,43,0.95) 0%, rgba(11,19,43,0.4) 50%, rgba(0,0,0,0.2) 100%)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'flex-end',
-            padding: '16px'
+            justifyContent: 'center',
+            padding: '20px 16px',
+            textAlign: 'center'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '6px' }}>
-              <span className="badge-pill bg-yellow">
-                <span className="pill-dot"></span>
-                SEPT 17–18, 2026
-              </span>
-              <span className="badge-pill bg-blue">
-                📍 URS PILILLA GYM
-              </span>
-            </div>
-            <h1 className="portal-poster-title" style={{
-              fontSize: '1.75rem',
+            {/* Center Floating SSG Seal */}
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.2, type: 'spring', stiffness: 260 }}
+              style={{
+                width: '76px',
+                height: '76px',
+                borderRadius: '50%',
+                background: '#FFFFFF',
+                border: '3px solid #FFD100',
+                boxShadow: '0 8px 30px rgba(0,0,0,0.7), 0 0 20px rgba(255, 209, 0, 0.4)',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '8px'
+              }}
+            >
+              <img
+                src="/logo.png"
+                alt="SSG Official Seal"
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+            </motion.div>
+
+            <h1 style={{
+              fontSize: '1.85rem',
               fontWeight: '900',
-              color: '#FFD100',
-              textShadow: '0 2px 10px rgba(0,0,0,0.8)',
-              margin: 0
+              color: '#FFF',
+              textShadow: '0 0 15px rgba(255,209,0,0.6), 0 2px 10px rgba(0,0,0,0.9)',
+              margin: '0 0 4px',
+              letterSpacing: '0.5px'
             }}>
-              URSPANTROPIKO 2026
+              URSP Acquaintance Party
             </h1>
-            <p className="portal-poster-sub" style={{ fontSize: '0.85rem', color: '#E2E8F0', marginTop: '2px' }}>
-              Official Student Acquaintance Party &bull; Ticket Registration
+            <p style={{
+              fontSize: '0.78rem',
+              fontWeight: '800',
+              color: '#FEF08A',
+              letterSpacing: '0.6px',
+              textTransform: 'uppercase',
+              maxWidth: '90%',
+              margin: '0 auto',
+              textShadow: '0 1px 8px rgba(0,0,0,0.8)',
+              lineHeight: '1.4'
+            }}>
+              URSPANTROPIKO: ONE ISLAND, ONE CAMPUS, ONE IDENTITY &ndash; RED HAWKS SOARING IN UNITY
             </p>
+          </div>
+        </motion.div>
+
+        {/* 3-Column Event Details Strip Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.4 }}
+          style={{
+            background: 'rgba(15, 23, 42, 0.85)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            borderRadius: '16px',
+            padding: '12px 8px',
+            marginBottom: '18px',
+            display: 'grid',
+            gridTemplateColumns: '1.1fr 1.1fr 1fr',
+            gap: '8px',
+            textAlign: 'center'
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRight: '1px solid rgba(255,255,255,0.08)', paddingRight: '4px' }}>
+            <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '700' }}>Sept</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+              <span style={{ fontSize: '14px' }}>📅</span>
+              <span style={{ fontSize: '12.5px', fontWeight: '900', color: '#FFD100' }}>17–18, 2026</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRight: '1px solid rgba(255,255,255,0.08)', paddingRight: '4px' }}>
+            <span style={{ fontSize: '11px', color: '#FFD100', fontWeight: '800' }}>5:00 PM –</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+              <span style={{ fontSize: '14px' }}>⏰</span>
+              <span style={{ fontSize: '12px', fontWeight: '800', color: '#FFD100' }}>5:00 AM</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: '11px', color: '#FFD100', fontWeight: '800' }}>URS</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+              <span style={{ fontSize: '14px' }}>📍</span>
+              <span style={{ fontSize: '12px', fontWeight: '800', color: '#FFD100' }}>Pililla Gym</span>
+            </div>
           </div>
         </motion.div>
 
@@ -696,8 +766,8 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
 
             {/* Collegiate Department Selector Grid */}
             <div className="portal-form-group">
-              <label className="portal-form-label">
-                <span>COLLEGIATE DEPARTMENT</span>
+              <label className="portal-form-label" style={{ color: '#FFD100', fontWeight: '900', fontSize: '12px', letterSpacing: '0.8px' }}>
+                <span>SELECT YOUR COLLEGE DIVISION:</span>
                 <span className="label-required">*</span>
               </label>
               <div className="portal-college-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
