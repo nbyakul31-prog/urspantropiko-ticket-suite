@@ -61,6 +61,44 @@ function normalizeTicket(t) {
   };
 }
 
+function mergeTicketRecords(localList = [], remoteList = []) {
+  const map = new Map();
+
+  // 1. Index remote list
+  (remoteList || []).forEach(t => {
+    const norm = normalizeTicket(t);
+    if (norm && norm.ticket_code) map.set(norm.ticket_code, norm);
+  });
+
+  // 2. Merge local list (preserving most advanced status)
+  (localList || []).forEach(t => {
+    const localNorm = normalizeTicket(t);
+    if (!localNorm || !localNorm.ticket_code) return;
+
+    if (!map.has(localNorm.ticket_code)) {
+      map.set(localNorm.ticket_code, localNorm);
+    } else {
+      const existing = map.get(localNorm.ticket_code);
+      const isPaid = localNorm.payment_status === 'paid' || existing.payment_status === 'paid';
+      const isDay1 = localNorm.day1_status === 'attended' || existing.day1_status === 'attended';
+      const isDay2 = localNorm.day2_status === 'attended' || existing.day2_status === 'attended';
+
+      map.set(localNorm.ticket_code, {
+        ...existing,
+        ...localNorm,
+        payment_status: isPaid ? 'paid' : (localNorm.payment_status || existing.payment_status || 'unpaid'),
+        day1_status: isDay1 ? 'attended' : 'not_attended',
+        day1_time: (isDay1 ? (localNorm.day1_time || existing.day1_time || '08:15 AM') : null),
+        day2_status: isDay2 ? 'attended' : 'not_attended',
+        day2_time: (isDay2 ? (localNorm.day2_time || existing.day2_time || '08:15 AM') : null),
+        attendance_status: (isDay1 || isDay2) ? 'attended' : 'not_attended'
+      });
+    }
+  });
+
+  return Array.from(map.values());
+}
+
 function getStoredTickets() {
   try {
     let raw = localStorage.getItem(STORAGE_KEY);
@@ -401,17 +439,18 @@ export default function App() {
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Query Supabase Remote DB upon loading (Syncs registrations from Supabase into Masterlist)
+    // 1. Query Supabase Remote DB upon loading (Syncs registrations into Masterlist non-destructively)
     async function syncFromSupabase() {
       try {
         if (supabase && typeof supabase.from === 'function') {
           const { data, error } = await supabase.from('attendees').select('*').order('created_at', { ascending: false });
           if (!error && Array.isArray(data) && data.length > 0 && isMounted) {
-            const active = data.filter(t => t && t.ticket_code).map(normalizeTicket).filter(Boolean);
-            if (active.length > 0) {
-              setTickets(active);
-              saveStoredTickets(active);
-              broadcastCloudUpdate(active);
+            const currentLocal = getStoredTickets();
+            const merged = mergeTicketRecords(currentLocal, data);
+            if (merged.length > 0) {
+              setTickets(merged);
+              saveStoredTickets(merged);
+              broadcastCloudUpdate(merged);
             }
           }
         }
@@ -459,7 +498,7 @@ export default function App() {
               const updated = normalizeTicket(payload.new);
               if (!updated) return;
               setTickets(prev => {
-                const next = prev.map(t => t.ticket_code === updated.ticket_code ? updated : t);
+                const next = prev.map(t => t.ticket_code === updated.ticket_code ? { ...t, ...updated } : t);
                 saveStoredTickets(next);
                 return next;
               });
@@ -492,9 +531,10 @@ export default function App() {
     const cleanupCloudSync = listenToCloudUpdates((cloudTickets, ping) => {
       if (Array.isArray(cloudTickets) && isMounted) {
         if (cloudTickets.length > 0) {
-          const active = cloudTickets.filter(t => t && t.ticket_code).map(normalizeTicket).filter(Boolean);
-          setTickets(active);
-          saveStoredTickets(active);
+          const currentLocal = getStoredTickets();
+          const merged = mergeTicketRecords(currentLocal, cloudTickets);
+          setTickets(merged);
+          saveStoredTickets(merged);
         } else {
           // If cloud is cold, check if local storage has tickets to re-seed
           const currentLocal = getStoredTickets();
@@ -518,19 +558,13 @@ export default function App() {
       setActivityLog(prev => {
         let updated = prev;
         if (logUpdate.action === 'sync_all' && Array.isArray(logUpdate.logs)) {
-          if (logUpdate.logs.length > 0) {
-            updated = logUpdate.logs;
-          } else {
-            // Cold start protection: If cloud returns empty logs but device has local logs, re-seed cloud instead of wiping!
-            if (prev.length > 0) {
-              fetch('/api/sync', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ activityLog: prev })
-              }).catch(() => {});
-              return prev;
-            }
-          }
+          // Non-destructive ID union merge so cold initial responses don't wipe active logs
+          const mergedMap = new Map();
+          prev.forEach(l => { if (l && l.id) mergedMap.set(l.id, l); });
+          logUpdate.logs.forEach(l => { if (l && l.id) mergedMap.set(l.id, l); });
+          const merged = Array.from(mergedMap.values());
+          merged.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+          updated = merged.slice(0, 1000);
         } else if (logUpdate.action === 'add' && logUpdate.logEntry) {
           if (!prev.some(l => l.id === logUpdate.logEntry.id)) {
             updated = [logUpdate.logEntry, ...prev].slice(0, 1000);
