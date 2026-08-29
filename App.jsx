@@ -759,23 +759,26 @@ export default function App() {
 
   // 5. Delete Single Attendee Handler
   const handleDeleteAttendee = async (code) => {
+    if (!code) return;
     recordDeletedCode(code);
-    const targetToDelete = tickets.find(t => t.ticket_code === code);
-    const nextList = tickets.filter(t => t.ticket_code !== code);
-    setTickets(nextList);
-    saveStoredTickets(nextList);
+    let targetToDelete = null;
+    let nextList = [];
 
-    const ping = targetToDelete ? {
+    setTickets(prev => {
+      targetToDelete = prev.find(t => t.ticket_code === code);
+      nextList = prev.filter(t => t.ticket_code !== code);
+      saveStoredTickets(nextList);
+      return nextList;
+    });
+
+    const ping = {
       type: 'deletion',
       title: '🗑️ ATTENDEE REMOVED',
-      message: `${targetToDelete.full_name} (${targetToDelete.student_id} • ${targetToDelete.ticket_code}) was removed from the masterlist by ${adminSession?.name || 'Admin'}.`,
+      message: targetToDelete
+        ? `${targetToDelete.full_name} (${targetToDelete.student_id} • ${targetToDelete.ticket_code}) was removed from the masterlist by ${adminSession?.name || 'Admin'}.`
+        : `Attendee ${code} was removed from the masterlist by ${adminSession?.name || 'Admin'}.`,
       ticket_code: code,
-      department: targetToDelete.department
-    } : {
-      type: 'deletion',
-      title: '🗑️ ATTENDEE REMOVED',
-      message: `Attendee ${code} was removed from the masterlist by ${adminSession?.name || 'Admin'}.`,
-      ticket_code: code
+      department: targetToDelete?.department
     };
 
     broadcastUpdate(nextList, ping, [code]);
@@ -825,16 +828,19 @@ export default function App() {
     const deleteSet = new Set(codesToDelete);
     codesToDelete.forEach(code => recordDeletedCode(code));
 
+    let nextList = [];
     setTickets(prev => {
-      const nextList = prev.filter(t => !deleteSet.has(t.ticket_code));
-      const ping = {
-        type: 'deletion',
-        title: `🗑️ ${codesToDelete.length} ATTENDEES DELETED`,
-        message: `Batch of ${codesToDelete.length} student record(s) deleted by ${adminSession?.name || 'Admin'}.`
-      };
-      broadcastUpdate(nextList, ping, codesToDelete);
+      nextList = prev.filter(t => !deleteSet.has(t.ticket_code));
+      saveStoredTickets(nextList);
       return nextList;
     });
+
+    const ping = {
+      type: 'deletion',
+      title: `🗑️ ${codesToDelete.length} ATTENDEES DELETED`,
+      message: `Batch of ${codesToDelete.length} student record(s) deleted by ${adminSession?.name || 'Admin'}.`
+    };
+    broadcastUpdate(nextList, ping, codesToDelete);
 
     addLogEntry({
       type: 'deletion',
