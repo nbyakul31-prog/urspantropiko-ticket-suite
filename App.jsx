@@ -1192,6 +1192,9 @@ export default function App() {
             onAdminLogout={handleLockAdmin}
             livePings={livePings}
             highlightedCode={highlightedCode}
+            activityLog={activityLog}
+            onDeleteLogs={handleDeleteLogs}
+            onClearAllLogs={handleClearAllLogs}
           />
         )}
         

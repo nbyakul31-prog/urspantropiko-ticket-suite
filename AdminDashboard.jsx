@@ -3,6 +3,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { sanitizeExcelFormula, sanitizeText } from './lib/security';
+import NotificationsLog from './NotificationsLog';
 
 // Helpers for Philippine Standard Time (PST) Date & Time Formatting
 export const formatDateOnly = (dateStr) => {
@@ -174,7 +175,10 @@ export default function AdminDashboard({
   livePings = [],
   highlightedCode = null,
   eventName = "URSPANTROPIKO: URSP Acquaintance Party 2026",
-  eventLogo = null
+  eventLogo = null,
+  activityLog = [],
+  onDeleteLogs,
+  onClearAllLogs
 }) {
   const [selectedTicketCodes, setSelectedTicketCodes] = useState(new Set());
   const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false);
@@ -939,6 +943,25 @@ export default function AdminDashboard({
               onClick={() => handleTabSwitch('analytics')}
             >
               📊 Graphical Analytics
+            </button>
+            <button
+              className={`tab-pill-btn ${activeTab === 'logs' ? 'active' : ''}`}
+              onClick={() => handleTabSwitch('logs')}
+            >
+              📡 Live Activity Log
+              {activityLog && activityLog.length > 0 && (
+                <span style={{
+                  marginLeft: '6px',
+                  background: '#38BDF8',
+                  color: '#000',
+                  fontSize: '10px',
+                  fontWeight: '900',
+                  padding: '2px 7px',
+                  borderRadius: '10px'
+                }}>
+                  {activityLog.length > 99 ? '99+' : activityLog.length}
+                </span>
+              )}
             </button>
             <button
               className={`tab-pill-btn ${activeTab === 'access' ? 'active' : ''}`}
@@ -2048,6 +2071,24 @@ export default function AdminDashboard({
               </div>
             </motion.div>
           </div>
+        </motion.section>
+      )}
+
+      {/* TAB: GMAIL-STYLE LIVE ACTIVITY & AUDIT LOG */}
+      {activeTab === 'logs' && (
+        <motion.section
+          ref={contentAnchorRef}
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.3 }}
+        >
+          <NotificationsLog
+            activityLog={activityLog}
+            totalAttendees={tickets.length}
+            onDeleteLogs={onDeleteLogs}
+            onClearAllLogs={onClearAllLogs}
+          />
         </motion.section>
       )}
 
