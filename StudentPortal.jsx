@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
+import { QRCodeCanvas } from 'qrcode.react';
 import html2canvas from 'html2canvas';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './lib/supabase';
@@ -239,14 +239,27 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
   };
 
   const handleDownloadBadge = async () => {
-    if (!badgeRef.current) return;
+    if (!badgeRef.current || !ticket) return;
     try {
+      const originalCanvas = badgeRef.current.querySelector('canvas');
+
       const canvas = await html2canvas(badgeRef.current, {
         scale: 3,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#0F172A',
-        logging: false
+        logging: false,
+        onclone: (clonedDoc) => {
+          const clonedCanvas = clonedDoc.querySelector('.badge-qr-container canvas');
+          if (originalCanvas && clonedCanvas) {
+            clonedCanvas.width = originalCanvas.width;
+            clonedCanvas.height = originalCanvas.height;
+            const ctx = clonedCanvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(originalCanvas, 0, 0);
+            }
+          }
+        }
       });
       const image = canvas.toDataURL('image/png');
       const link = document.createElement('a');
@@ -636,7 +649,14 @@ export default function StudentPortal({ onTicketGenerated, registrationLocked = 
                   boxShadow: '0 8px 25px rgba(0,0,0,0.5)'
                 }}
               >
-                <QRCodeSVG value={ticket.ticket_code} size={170} level="H" includeMargin={true} />
+                <QRCodeCanvas
+                  value={ticket.ticket_code}
+                  size={180}
+                  level="H"
+                  includeMargin={true}
+                  fgColor="#000000"
+                  bgColor="#FFFFFF"
+                />
               </motion.div>
 
               <div className="badge-warning-box" style={{
