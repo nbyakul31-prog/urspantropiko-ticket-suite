@@ -217,10 +217,10 @@ export default function StudentPortal({
 
       // Cross-Device Real-Time Cloud Broadcast
       try {
-        const existingData = localStorage.getItem('ursp_masterlist_attendees_v5');
+        const existingData = localStorage.getItem('ursp_masterlist_attendees_v6');
         let currentList = existingData ? JSON.parse(existingData) : [];
-        currentList = [newAttendee, ...currentList.filter(t => t.ticket_code !== newAttendee.ticket_code && t.student_id !== newAttendee.student_id)];
-        localStorage.setItem('ursp_masterlist_attendees_v5', JSON.stringify(currentList));
+        currentList = [newAttendee, ...currentList.filter(t => t && t.ticket_code !== newAttendee.ticket_code && t.student_id !== newAttendee.student_id)];
+        localStorage.setItem('ursp_masterlist_attendees_v6', JSON.stringify(currentList));
 
         const registrationPing = {
           type: 'registration',
@@ -231,6 +231,15 @@ export default function StudentPortal({
         };
 
         // Real-Time Push to all connected PC Admins & Devices
+        fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            attendee: newAttendee,
+            ping: registrationPing
+          })
+        }).catch(() => {});
+
         broadcastCloudUpdate(currentList, registrationPing);
       } catch (e) {
         console.error('Cloud broadcast sync notice:', e);

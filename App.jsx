@@ -506,18 +506,41 @@ export default function App() {
     // 3. Real-Time Cloud Listener for Cross-Device Sync (Phone <-> PC Admin)
     const cleanupCloudSync = listenToCloudUpdates((cloudTickets, ping) => {
       if (Array.isArray(cloudTickets) && isMounted) {
-        if (cloudTickets.length > 0) {
-          const active = cloudTickets.filter(t => t && t.ticket_code).map(normalizeTicket).filter(Boolean);
-          setTickets(active);
-          saveStoredTickets(active);
-        } else {
-          // If cloud is cold, check if local storage has tickets to re-seed
-          const currentLocal = getStoredTickets();
-          if (currentLocal && currentLocal.length > 0) {
-            setTickets(currentLocal);
-            broadcastCloudUpdate(currentLocal);
-          }
-        }
+        let delSet = new Set();
+        try {
+          const rawDel = localStorage.getItem('ursp_deleted_codes_v1');
+          if (rawDel) delSet = new Set(JSON.parse(rawDel));
+        } catch (e) {}
+
+        const activeCloud = cloudTickets.filter(t => isRealAttendee(t) && !delSet.has(t.ticket_code)).map(normalizeTicket).filter(Boolean);
+
+        setTickets(prev => {
+          const map = new Map();
+          // Keep existing local non-deleted tickets
+          (prev || []).forEach(t => {
+            if (t && t.ticket_code && !delSet.has(t.ticket_code)) map.set(t.ticket_code, t);
+          });
+          // Merge incoming cloud tickets
+          activeCloud.forEach(t => {
+            if (t && t.ticket_code && !delSet.has(t.ticket_code)) {
+              const existing = map.get(t.ticket_code);
+              if (existing) {
+                map.set(t.ticket_code, {
+                  ...existing,
+                  ...t,
+                  payment_status: (t.payment_status === 'paid' || existing.payment_status === 'paid') ? 'paid' : (t.payment_status || existing.payment_status || 'unpaid'),
+                  day1_status: (t.day1_status === 'attended' || existing.day1_status === 'attended') ? 'attended' : 'not_attended',
+                  day2_status: (t.day2_status === 'attended' || existing.day2_status === 'attended') ? 'attended' : 'not_attended'
+                });
+              } else {
+                map.set(t.ticket_code, t);
+              }
+            }
+          });
+          const merged = Array.from(map.values());
+          saveStoredTickets(merged);
+          return merged;
+        });
       }
       if (ping && isMounted) {
         addLivePing(ping);

@@ -143,16 +143,38 @@ export default function handler(req, res) {
         }
         const delSet = new Set(s.deletedCodes || []);
 
-        // Handle full ticket list sync (authoritative from client, filtered by tombstones)
-        if (Array.isArray(data)) {
-          s.attendees = data.filter(t => isRealAttendee(t) && !delSet.has(t.ticket_code));
-        } else if (data && data.tickets && Array.isArray(data.tickets)) {
-          s.attendees = data.tickets.filter(t => isRealAttendee(t) && !delSet.has(t.ticket_code));
-        } else if (data && data.attendee && data.attendee.ticket_code && isRealAttendee(data.attendee) && !delSet.has(data.attendee.ticket_code)) {
+        // Handle attendee registration or update
+        if (data && data.attendee && data.attendee.ticket_code && isRealAttendee(data.attendee) && !delSet.has(data.attendee.ticket_code)) {
+          const newAtt = data.attendee;
           s.attendees = [
-            data.attendee,
-            ...s.attendees.filter(a => a && a.ticket_code !== data.attendee.ticket_code && a.student_id !== data.attendee.student_id)
+            newAtt,
+            ...s.attendees.filter(a => a && a.ticket_code !== newAtt.ticket_code && a.student_id !== newAtt.student_id)
           ].filter(t => isRealAttendee(t) && !delSet.has(t.ticket_code));
+        } else if (data && (Array.isArray(data) || (data.tickets && Array.isArray(data.tickets)))) {
+          const incomingList = Array.isArray(data) ? data : data.tickets;
+          const incomingReal = incomingList.filter(t => isRealAttendee(t) && !delSet.has(t.ticket_code));
+
+          // Non-destructive Union Merge: Keep existing registered students on server
+          const map = new Map();
+          s.attendees.forEach(a => {
+            if (a && a.ticket_code && !delSet.has(a.ticket_code)) map.set(a.ticket_code, a);
+          });
+          incomingReal.forEach(a => {
+            if (!a || !a.ticket_code) return;
+            const existing = map.get(a.ticket_code);
+            if (existing) {
+              map.set(a.ticket_code, {
+                ...existing,
+                ...a,
+                payment_status: (a.payment_status === 'paid' || existing.payment_status === 'paid') ? 'paid' : (a.payment_status || existing.payment_status || 'unpaid'),
+                day1_status: (a.day1_status === 'attended' || existing.day1_status === 'attended') ? 'attended' : 'not_attended',
+                day2_status: (a.day2_status === 'attended' || existing.day2_status === 'attended') ? 'attended' : 'not_attended'
+              });
+            } else {
+              map.set(a.ticket_code, a);
+            }
+          });
+          s.attendees = Array.from(map.values());
         }
 
         // Handle activity log entry addition
