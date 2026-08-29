@@ -482,9 +482,19 @@ export default function App() {
     // 3. Real-Time Cloud Listener for Cross-Device Sync (Phone <-> PC Admin)
     const cleanupCloudSync = listenToCloudUpdates((cloudTickets, ping) => {
       if (Array.isArray(cloudTickets) && isMounted) {
-        const active = cloudTickets.filter(t => t && t.ticket_code).map(normalizeTicket).filter(Boolean);
-        setTickets(active);
-        saveStoredTickets(active);
+        if (cloudTickets.length > 0) {
+          const active = cloudTickets.filter(t => t && t.ticket_code).map(normalizeTicket).filter(Boolean);
+          setTickets(active);
+          saveStoredTickets(active);
+        } else {
+          // Cold start protection: Do NOT wipe local attendees if cloud returns empty
+          const currentLocal = getStoredTickets();
+          if (currentLocal && currentLocal.length > 0) {
+            setTickets(currentLocal);
+            // Push local attendees back to seed the cold serverless container
+            broadcastCloudUpdate(currentLocal);
+          }
+        }
       }
       if (ping && isMounted) {
         addLivePing(ping);
