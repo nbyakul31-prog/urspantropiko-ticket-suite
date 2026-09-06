@@ -387,7 +387,7 @@ export default function AdminDashboard({
   const studentRegisterUrl = `${activeBaseUrl}/`;
   const currentUsherObj = [
     { id: 'usher1', name: 'Usher 1 (Gate Alpha)', location: 'North Entrance Gate', color: '#38BDF8', icon: '🚪' },
-    { id: 'usher2', name: 'Usher 2 (Gate Bravo)', location: 'Main Gym Entrance', color: '#10B981', icon: '🏛️' },
+    { id: 'usher2', name: 'Usher 2 (Gate Bravo)', location: 'Main Campus Entrance', color: '#10B981', icon: '🏛️' },
     { id: 'usher3', name: 'Usher 3 (Gate Charlie)', location: 'South Field Gate', color: '#F59E0B', icon: '🎪' },
     { id: 'usher4', name: 'Usher 4 (Fast Track)', location: 'VIP & Express Lane', color: '#EC4899', icon: '⚡' }
   ].find(u => u.id === selectedUsherStation) || { id: 'usher1', name: 'Usher 1 (Gate Alpha)', location: 'North Entrance Gate', color: '#38BDF8', icon: '🚪' };
@@ -601,7 +601,7 @@ export default function AdminDashboard({
             <td colspan="${totalCols}" class="banner-sub">"ONE ISLAND, ONE CAMPUS, ONE IDENTITY — RED HAWKS SOARING IN UNITY"</td>
           </tr>
           <tr>
-            <td colspan="${totalCols}" class="banner-venue">📅 September 17-18, 2026 &nbsp;|&nbsp; 📍 University Gymnasium • URS Pililla Campus</td>
+            <td colspan="${totalCols}" class="banner-venue">📅 September 17-18, 2026 &nbsp;|&nbsp; 📍 URS Pililla Campus</td>
           </tr>
           <tr>
             <td colspan="${totalCols}" class="banner-doc">📋 Official Departmental &amp; Collegiate Ledger Masterlist (Surname First A-Z)</td>
@@ -804,7 +804,7 @@ export default function AdminDashboard({
           <div style="flex: 1; text-align: center;">
             <h1>🏛️ UNIVERSITY OF RIZAL SYSTEM • PILILLA CAMPUS</h1>
             <h2>🎉 URSPANTROPIKO: ACQUAINTANCE PARTY &amp; GENERAL ASSEMBLY 2026</h2>
-            <p>📅 Sept 17-18, 2026 &nbsp;|&nbsp; 📍 University Gymnasium • URS Pililla &nbsp;|&nbsp; 📋 Official Departmental &amp; Collegiate Ledger Audit</p>
+            <p>📅 Sept 17-18, 2026 &nbsp;|&nbsp; 📍 URS Pililla Campus &nbsp;|&nbsp; 📋 Official Departmental &amp; Collegiate Ledger Audit</p>
           </div>
           <img src="${window.location.origin}/logo.png" style="width: 52px; height: 52px; border-radius: 50%; background: #FFF; border: 2px solid #FEF08A; object-fit: contain;" />
         </div>
@@ -2396,7 +2396,7 @@ export default function AdminDashboard({
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '12px' }}>
                       {[
                         { id: 'usher1', name: 'Usher 1 (Gate Alpha)', location: 'North Entrance Gate', color: '#38BDF8', icon: '🚪' },
-                        { id: 'usher2', name: 'Usher 2 (Gate Bravo)', location: 'Main Gym Entrance', color: '#10B981', icon: '🏛️' },
+                        { id: 'usher2', name: 'Usher 2 (Gate Bravo)', location: 'Main Campus Entrance', color: '#10B981', icon: '🏛️' },
                         { id: 'usher3', name: 'Usher 3 (Gate Charlie)', location: 'South Field Gate', color: '#F59E0B', icon: '🎪' },
                         { id: 'usher4', name: 'Usher 4 (Fast Track)', location: 'VIP & Express Lane', color: '#EC4899', icon: '⚡' }
                       ].map(st => {
@@ -3058,7 +3058,7 @@ export default function AdminDashboard({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '14px', textAlign: 'left' }}>
                 {[
                   { id: 'usher1', name: 'Usher 1 (Gate Alpha)', location: 'North Entrance Gate', color: '#38BDF8', icon: '🚪' },
-                  { id: 'usher2', name: 'Usher 2 (Gate Bravo)', location: 'Main Gym Entrance', color: '#10B981', icon: '🏛️' },
+                  { id: 'usher2', name: 'Usher 2 (Gate Bravo)', location: 'Main Campus Entrance', color: '#10B981', icon: '🏛️' },
                   { id: 'usher3', name: 'Usher 3 (Gate Charlie)', location: 'South Field Gate', color: '#F59E0B', icon: '🎪' },
                   { id: 'usher4', name: 'Usher 4 (Fast Track)', location: 'VIP & Express Lane', color: '#EC4899', icon: '⚡' }
                 ].map(st => {

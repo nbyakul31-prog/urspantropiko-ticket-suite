@@ -27,7 +27,7 @@ export default function UsherScanner({ tickets = [], onAdmitStudent }) {
         'Usher 1 (Gate Alpha)'
       );
       const usherRole = params.get('role') || (
-        usherId === 'usher2' ? 'Main Gym Entrance' :
+        usherId === 'usher2' ? 'Main Campus Entrance' :
         usherId === 'usher3' ? 'South Field Gate' :
         usherId === 'usher4' ? 'VIP & Express Lane' :
         'North Entrance Gate'

@@ -180,7 +180,7 @@ export default function StudentPortal({
         throw new Error('Please enter both your Surname and First Name.');
       }
 
-      // Mandatory format: Surname, FirstName M.I. (e.g. Britania, Luigi Emanuel E.)
+      // Mandatory format: Surname, FirstName M.I. (e.g. Dela Cruz, Juan M.)
       const formattedFullName = rawMI 
         ? `${cleanLastName}, ${cleanFirstName} ${rawMI}.`
         : `${cleanLastName}, ${cleanFirstName}`;
@@ -593,7 +593,7 @@ export default function StudentPortal({
           <div className="event-strip-item" style={{ flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '2px', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
             <span className="event-strip-icon" style={{ fontSize: '13px' }}>📍</span>
             <div>
-              <div className="event-strip-label" style={{ fontSize: '10px', fontWeight: '800', color: '#FFD100', lineHeight: 1.1 }}>Pililla Gym</div>
+              <div className="event-strip-label" style={{ fontSize: '10px', fontWeight: '800', color: '#FFD100', lineHeight: 1.1 }}>Pililla Campus</div>
               <div className="event-strip-sub" style={{ fontSize: '8.5px', color: '#CBD5E1', opacity: 0.85 }}>Main Stage</div>
             </div>
           </div>
@@ -841,7 +841,7 @@ export default function StudentPortal({
                 <input
                   type="text"
                   required
-                  placeholder="e.g. 24-1725 or Britania, Luigi"
+                  placeholder="e.g. 2024-00000 or Dela Cruz, Juan"
                   className="portal-form-input"
                   value={lookupQuery}
                   onChange={(e) => setLookupQuery(e.target.value)}
@@ -909,7 +909,7 @@ export default function StudentPortal({
                 <input
                   type="text"
                   required
-                  placeholder="e.g. 24-1725 or 1434514"
+                  placeholder="e.g. 2024-00000 or 1434514"
                   className="portal-form-input"
                   value={studentId}
                   onChange={(e) => setStudentId(e.target.value)}
@@ -928,7 +928,7 @@ export default function StudentPortal({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Britania"
+                    placeholder="e.g. Dela Cruz"
                     className="portal-form-input"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
@@ -945,7 +945,7 @@ export default function StudentPortal({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Luigi"
+                    placeholder="e.g. Juan"
                     className="portal-form-input"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
@@ -960,7 +960,7 @@ export default function StudentPortal({
                 <div className="portal-input-wrapper">
                   <input
                     type="text"
-                    placeholder="E."
+                    placeholder="M."
                     maxLength={2}
                     className="portal-form-input"
                     style={{ textAlign: 'center' }}
