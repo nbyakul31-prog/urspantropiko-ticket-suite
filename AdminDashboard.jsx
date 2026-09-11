@@ -161,6 +161,59 @@ export const groupAttendeesByCollege = (list = []) => {
   return result;
 };
 
+// Isolated Real-Time Clock components (Prevents whole dashboard from re-rendering every 1s)
+export const LiveClockWatermark = React.memo(function LiveClockWatermark() {
+  const [time, setTime] = useState(() => {
+    try {
+      return new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }).format(new Date());
+    } catch (e) { return new Date().toLocaleTimeString(); }
+  });
+  useEffect(() => {
+    const timer = setInterval(() => {
+      try {
+        setTime(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }).format(new Date()));
+      } catch (e) { setTime(new Date().toLocaleTimeString()); }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return <div className="hero-time-watermark" aria-hidden="true">{time}</div>;
+});
+
+export const LiveClockHudCard = React.memo(function LiveClockHudCard() {
+  const [clock, setClock] = useState(() => {
+    try {
+      const now = new Date();
+      return {
+        time: new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }).format(now),
+        date: new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).format(now)
+      };
+    } catch (e) { return { time: new Date().toLocaleTimeString(), date: new Date().toLocaleDateString() }; }
+  });
+  useEffect(() => {
+    const timer = setInterval(() => {
+      try {
+        const now = new Date();
+        setClock({
+          time: new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }).format(now),
+          date: new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).format(now)
+        });
+      } catch (e) { setClock({ time: new Date().toLocaleTimeString(), date: new Date().toLocaleDateString() }); }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="hero-live-clock-card">
+      <div className="live-clock-top">
+        <span className="live-pulse-dot" />
+        <span className="live-clock-label">PHILIPPINE STANDARD TIME (GMT+8)</span>
+      </div>
+      <div className="live-clock-digits">{clock.time}</div>
+      <div className="live-clock-date">{clock.date}</div>
+    </div>
+  );
+});
+
 export default function AdminDashboard({
   tickets = [],
   onTogglePayment,
@@ -286,58 +339,6 @@ export default function AdminDashboard({
 
   // Delete attendee confirmation modal state
   const [attendeeToDelete, setAttendeeToDelete] = useState(null);
-
-  // Live Philippine Standard Time (PST / GMT+8) Clock & Date
-  const [phClock, setPhClock] = useState(() => {
-    try {
-      const now = new Date();
-      return {
-        time: new Intl.DateTimeFormat('en-US', {
-          timeZone: 'Asia/Manila',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true
-        }).format(now),
-        date: new Intl.DateTimeFormat('en-US', {
-          timeZone: 'Asia/Manila',
-          weekday: 'short',
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric'
-        }).format(now)
-      };
-    } catch (e) {
-      return { time: new Date().toLocaleTimeString(), date: new Date().toLocaleDateString() };
-    }
-  });
-
-  React.useEffect(() => {
-    const timer = setInterval(() => {
-      try {
-        const now = new Date();
-        setPhClock({
-          time: new Intl.DateTimeFormat('en-US', {
-            timeZone: 'Asia/Manila',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true
-          }).format(now),
-          date: new Intl.DateTimeFormat('en-US', {
-            timeZone: 'Asia/Manila',
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-          }).format(now)
-        });
-      } catch (e) {
-        setPhClock({ time: new Date().toLocaleTimeString(), date: new Date().toLocaleDateString() });
-      }
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   // Master Access Configuration
   const masterUsherToken = 'USHER-MASTER-2026';
@@ -878,9 +879,7 @@ export default function AdminDashboard({
         transition={{ type: "spring", stiffness: 300, damping: 25 }}
       >
         {/* Giant Ambient Digital Clock Watermark */}
-        <div className="hero-time-watermark" aria-hidden="true">
-          {phClock.time}
-        </div>
+        <LiveClockWatermark />
 
         <div className="admin-hero-top-row">
           <motion.div className="admin-brand-left" whileHover={{ scale: 1.01 }}>
@@ -926,14 +925,7 @@ export default function AdminDashboard({
           </motion.div>
 
           {/* Big Command Center Digital Clock HUD Card */}
-          <div className="hero-live-clock-card">
-            <div className="live-clock-top">
-              <span className="live-pulse-dot" />
-              <span className="live-clock-label">PHILIPPINE STANDARD TIME (GMT+8)</span>
-            </div>
-            <div className="live-clock-digits">{phClock.time}</div>
-            <div className="live-clock-date">{phClock.date}</div>
-          </div>
+          <LiveClockHudCard />
         </div>
 
         {/* Bottom Quick Action Bar & Navigation */}
@@ -1554,13 +1546,8 @@ export default function AdminDashboard({
                               const isDuplicate = isDuplicateId || isDuplicateName;
 
                               return (
-                                <motion.tr
-                                  layout
+                                <tr
                                   key={item.ticket_code || item.id}
-                                  initial={{ opacity: 0, y: 8 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  exit={{ opacity: 0, scale: 0.95 }}
-                                  transition={{ type: "spring", stiffness: 450, damping: 30 }}
                                   onClick={() => markTicketAsRead(item.ticket_code)}
                                   className={`${isHighlighted ? 'row-highlight-pulse' : ''} ${isDuplicate ? 'row-duplicate-warn' : ''} ${isChecked ? 'row-selected' : ''}`}
                                   style={{ cursor: 'pointer' }}
@@ -1699,7 +1686,7 @@ export default function AdminDashboard({
                                       </motion.button>
                                   </div>
                                 </td>
-                              </motion.tr>
+                              </tr>
                             );
                           })
                         )}
@@ -1743,13 +1730,8 @@ export default function AdminDashboard({
                   const isDuplicate = isDuplicateId || isDuplicateName;
 
                   return (
-                    <motion.tr
-                      layout
+                    <tr
                       key={item.ticket_code || item.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ type: "spring", stiffness: 450, damping: 30 }}
                       onClick={() => markTicketAsRead(item.ticket_code)}
                       className={`${isHighlighted ? 'row-highlight-pulse' : ''} ${isDuplicate ? 'row-duplicate-warn' : ''} ${isChecked ? 'row-selected' : ''}`}
                       style={{ cursor: 'pointer' }}
@@ -1889,7 +1871,7 @@ export default function AdminDashboard({
                           </motion.button>
                         </div>
                       </td>
-                    </motion.tr>
+                    </tr>
                   );
                 })}
                 {filtered.length === 0 && (

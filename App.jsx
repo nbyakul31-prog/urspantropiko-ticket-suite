@@ -1304,52 +1304,58 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main View Portals */}
+      {/* Main View Portals — Persistent DOM mounting for 0ms instantaneous tab switching */}
       <main className="app-main-standalone">
-        {route === 'student' && (
+        <div style={{ display: route === 'student' ? 'block' : 'none' }}>
           <StudentPortal
             onTicketGenerated={handleTicketGenerated}
             registrationLocked={registrationLocked}
             isAdminAuthed={isAdminAuthed}
             allTickets={tickets}
           />
+        </div>
+        
+        {isAdminAuthed && (
+          <div style={{ display: route === 'admin' ? 'block' : 'none' }}>
+            <AdminDashboard
+              tickets={tickets}
+              onTogglePayment={handleTogglePayment}
+              onBulkVerify={handleBulkVerify}
+              onAdmitStudent={handleAdmitStudent}
+              onDeleteAttendee={handleDeleteAttendee}
+              onBatchDeleteAttendees={handleBatchDeleteAttendees}
+              registrationLocked={registrationLocked}
+              onToggleRegistrationLock={handleToggleRegistrationLock}
+              adminSession={adminSession}
+              onAdminLogout={handleLockAdmin}
+              livePings={livePings}
+              highlightedCode={highlightedCode}
+              activityLog={activityLog}
+              onDeleteLogs={handleDeleteLogs}
+              onClearAllLogs={handleClearAllLogs}
+            />
+          </div>
         )}
         
-        {route === 'admin' && (
-          <AdminDashboard
-            tickets={tickets}
-            onTogglePayment={handleTogglePayment}
-            onBulkVerify={handleBulkVerify}
-            onAdmitStudent={handleAdmitStudent}
-            onDeleteAttendee={handleDeleteAttendee}
-            onBatchDeleteAttendees={handleBatchDeleteAttendees}
-            registrationLocked={registrationLocked}
-            onToggleRegistrationLock={handleToggleRegistrationLock}
-            adminSession={adminSession}
-            onAdminLogout={handleLockAdmin}
-            livePings={livePings}
-            highlightedCode={highlightedCode}
-            activityLog={activityLog}
-            onDeleteLogs={handleDeleteLogs}
-            onClearAllLogs={handleClearAllLogs}
-          />
+        {isAdminAuthed && (
+          <div style={{ display: route === 'logs' ? 'block' : 'none' }}>
+            <NotificationsLog
+              activityLog={activityLog}
+              totalAttendees={tickets.length}
+              onDeleteLogs={handleDeleteLogs}
+              onClearAllLogs={handleClearAllLogs}
+              onNavigate={handleNavigate}
+            />
+          </div>
         )}
         
-        {route === 'logs' && (
-          <NotificationsLog
-            activityLog={activityLog}
-            totalAttendees={tickets.length}
-            onDeleteLogs={handleDeleteLogs}
-            onClearAllLogs={handleClearAllLogs}
-            onNavigate={handleNavigate}
-          />
-        )}
-        
-        {route === 'usher' && (
-          <UsherScanner
-            tickets={tickets}
-            onAdmitStudent={handleAdmitStudent}
-          />
+        {(route === 'usher' || isAdminAuthed) && (
+          <div style={{ display: route === 'usher' ? 'block' : 'none' }}>
+            <UsherScanner
+              tickets={tickets}
+              onAdmitStudent={handleAdmitStudent}
+            />
+          </div>
         )}
       </main>
 
