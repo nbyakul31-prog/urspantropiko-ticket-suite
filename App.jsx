@@ -497,14 +497,20 @@ export default function App() {
       }
     } catch (err) {}
 
-    // Seed Vercel Cloud Relay on mount if this device holds attendees
-    const localSeed = getStoredTickets();
-    if (localSeed && localSeed.length > 0) {
-      broadcastCloudUpdate(localSeed);
+    // Seed Vercel Cloud Relay on mount ONLY if this device is an authenticated Admin
+    if (isAdminAuthed) {
+      const localSeed = getStoredTickets();
+      if (localSeed && localSeed.length > 0) {
+        broadcastCloudUpdate(localSeed);
+      }
     }
 
-    // 3. Real-Time Cloud Listener for Cross-Device Sync (Phone <-> PC Admin)
-    const cleanupCloudSync = listenToCloudUpdates((cloudTickets, ping) => {
+    // 3. Real-Time Cloud Listener for Cross-Device Sync (Admins, Ushers, Logs only)
+    const isStaff = route === 'admin' || route === 'usher' || route === 'logs' || isAdminAuthed;
+    let cleanupCloudSync = () => {};
+
+    if (isStaff) {
+      cleanupCloudSync = listenToCloudUpdates((cloudTickets, ping) => {
       if (Array.isArray(cloudTickets) && isMounted) {
         let delSet = new Set();
         try {
@@ -604,6 +610,18 @@ export default function App() {
         return updated;
       });
     });
+    } else {
+      // Public student portal: single lightweight check on mount for registration lock status (0 redundant polling)
+      fetch('/api/sync?field=lock')
+        .then(r => r.json())
+        .then(json => {
+          if (json && typeof json.registrationLocked === 'boolean' && isMounted) {
+            setRegistrationLocked(json.registrationLocked);
+            try { localStorage.setItem('ursp_registration_locked', String(json.registrationLocked)); } catch(e) {}
+          }
+        })
+        .catch(() => {});
+    }
 
     const handleStorage = (e) => {
       if (e.key === STORAGE_KEY && e.newValue) {
@@ -666,7 +684,12 @@ export default function App() {
 
       const filtered = prev.filter(t => t.ticket_code !== record.ticket_code && t.student_id !== record.student_id);
       const nextList = [record, ...filtered];
-      broadcastUpdate(nextList, ping);
+      if (isAdminAuthed) {
+        broadcastUpdate(nextList, ping);
+      } else {
+        saveStoredTickets(nextList);
+        if (ping) addLivePing(ping);
+      }
       return nextList;
     });
 

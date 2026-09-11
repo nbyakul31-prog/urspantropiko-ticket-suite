@@ -215,7 +215,7 @@ export default function StudentPortal({
         }
       } catch (err) {}
 
-      // Cross-Device Real-Time Cloud Broadcast
+      // Cross-Device Real-Time Cloud Broadcast (Lightweight single push)
       try {
         const existingData = localStorage.getItem('ursp_masterlist_attendees_v6');
         let currentList = existingData ? JSON.parse(existingData) : [];
@@ -230,7 +230,7 @@ export default function StudentPortal({
           department: newAttendee.department
         };
 
-        // Real-Time Push to all connected PC Admins & Devices
+        // Real-Time Push to Vercel API (Lightweight: sends only new attendee + ping)
         fetch('/api/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -240,7 +240,19 @@ export default function StudentPortal({
           })
         }).catch(() => {});
 
-        broadcastCloudUpdate(currentList, registrationPing);
+        // Instant broadcast to other tabs on the same computer with 0 network usage
+        if (typeof BroadcastChannel !== 'undefined') {
+          try {
+            const bc = new BroadcastChannel('ursp_live_sync_channel');
+            bc.postMessage({
+              type: 'SYNC_TICKETS',
+              tickets: currentList,
+              ping: registrationPing,
+              timestamp: Date.now()
+            });
+            bc.close();
+          } catch (bce) {}
+        }
       } catch (e) {
         console.error('Cloud broadcast sync notice:', e);
       }

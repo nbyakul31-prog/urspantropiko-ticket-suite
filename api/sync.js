@@ -38,6 +38,8 @@ let memoryState = {
   latestPing: null,
   deletedCodes: [],
   deletedLogIds: [],
+  version: 1,
+  lastModified: Date.now(),
   initialized: false
 };
 
@@ -52,6 +54,8 @@ function getState() {
       memoryState.activityLog = (disk.activityLog || []).filter(l => l && l.id && !logDelSet.has(l.id));
       memoryState.registrationLocked = !!disk.registrationLocked;
       memoryState.latestPing = disk.latestPing || null;
+      memoryState.version = typeof disk.version === 'number' ? disk.version : 1;
+      memoryState.lastModified = disk.lastModified || Date.now();
       memoryState.initialized = true;
     }
   }
@@ -65,6 +69,8 @@ function getState() {
 function persistState(updater) {
   const current = getState();
   updater(current);
+  current.version = (current.version || 0) + 1;
+  current.lastModified = Date.now();
   current.initialized = true;
   writeDiskCache(current);
   return current;
@@ -214,9 +220,28 @@ export default function handler(req, res) {
         }
       });
 
+      // Return lightweight acknowledgement for registration/log writes to save 99% outgoing bandwidth
+      const isLightweight = (data && (data.attendee || data.logEntry || data.ping || data.deleteLogIds)) || req.query?.light === 'true';
+      const wantFull = req.query?.full === 'true' || (data && Array.isArray(data.tickets) && !data.attendee);
+
+      if (isLightweight && !wantFull) {
+        return res.status(200).json({
+          success: true,
+          count: state.attendees.length,
+          registrationLocked: state.registrationLocked,
+          latestPing: state.latestPing,
+          version: state.version,
+          deletedCodes: state.deletedCodes || []
+        });
+      }
+
+      const etag = `"${state.version || 1}_${state.attendees.length}_${(state.activityLog || []).length}_${state.registrationLocked ? 1 : 0}_${state.latestPing?.timestamp || 0}"`;
+      res.setHeader('ETag', etag);
+
       return res.status(200).json({
         success: true,
         count: state.attendees.length,
+        version: state.version,
         data: state.attendees,
         activityLog: state.activityLog,
         registrationLocked: state.registrationLocked,
@@ -228,10 +253,27 @@ export default function handler(req, res) {
     }
   }
 
-  // GET: Return current sync state
+  // Fast lightweight query for registration lock check
+  if (req.query && (req.query.field === 'lock' || req.query.lock === 'true')) {
+    return res.status(200).json({
+      success: true,
+      registrationLocked: state.registrationLocked
+    });
+  }
+
+  // GET: Return current sync state with ETag conditional 304 Not Modified (0 bytes transferred)
+  const etag = `"${state.version || 1}_${state.attendees.length}_${(state.activityLog || []).length}_${state.registrationLocked ? 1 : 0}_${state.latestPing?.timestamp || 0}"`;
+  res.setHeader('ETag', etag);
+  res.setHeader('Cache-Control', 'no-cache');
+
+  if (req.headers['if-none-match'] === etag) {
+    return res.status(304).end();
+  }
+
   return res.status(200).json({
     success: true,
     count: state.attendees.length,
+    version: state.version,
     data: state.attendees,
     activityLog: state.activityLog,
     registrationLocked: state.registrationLocked,
