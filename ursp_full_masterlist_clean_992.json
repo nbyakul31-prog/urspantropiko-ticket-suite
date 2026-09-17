@@ -1,80 +1,27 @@
 {
   "success": true,
   "count": 992,
-  "version": 17,
+  "version": 6,
+  "verified_at": "2026-09-17T08:29:13.352Z",
+  "event_name": "URSPANTROPIKO: URSP Acquaintance Party 2026",
+  "statistics": {
+    "total_attendees": 992,
+    "paid_count": 731,
+    "unpaid_count": 261,
+    "departments": {
+      "College of Social Sciences": 320,
+      "College of Business": 550,
+      "College of Education": 122
+    }
+  },
+  "deletedCodes": [
+    "URS-38720",
+    "URS-39776",
+    "URS-76655",
+    "URS-85970",
+    "URS-49680"
+  ],
   "data": [
-    {
-      "student_id": "P2025-0235",
-      "full_name": "Magno, Jhon Michael C.",
-      "department": "College of Business",
-      "year_level": "2nd Year",
-      "program_section": "BSBA HRM 2-B",
-      "ticket_code": "URS-61056",
-      "payment_status": "unpaid",
-      "day1_status": "not_attended",
-      "day2_status": "not_attended",
-      "created_at": "2026-09-17T08:09:19.192Z"
-    },
-    {
-      "student_id": "P2026-0066",
-      "full_name": "ARCAÑO, Queen V.",
-      "department": "College of Social Sciences",
-      "year_level": "1st Year",
-      "program_section": "AB-POLSCI 1-A",
-      "ticket_code": "URS-82029",
-      "payment_status": "unpaid",
-      "day1_status": "not_attended",
-      "day2_status": "not_attended",
-      "created_at": "2026-09-17T07:37:46.444Z",
-      "day1_time": null,
-      "day2_time": null,
-      "attendance_status": "not_attended"
-    },
-    {
-      "student_id": "P2026-0079",
-      "full_name": "Ternate, Lance Terrence C.",
-      "department": "College of Social Sciences",
-      "year_level": "1st Year",
-      "program_section": "AB-POLSCI 1-A",
-      "ticket_code": "URS-10988",
-      "payment_status": "unpaid",
-      "day1_status": "not_attended",
-      "day2_status": "not_attended",
-      "created_at": "2026-09-17T07:30:32.318Z",
-      "day1_time": null,
-      "day2_time": null,
-      "attendance_status": "not_attended"
-    },
-    {
-      "student_id": "2026-0075",
-      "full_name": "Altamirano, Riz Bien H.",
-      "department": "College of Social Sciences",
-      "year_level": "1st Year",
-      "program_section": "AB-POLSCI 1-A",
-      "ticket_code": "URS-60634",
-      "payment_status": "unpaid",
-      "day1_status": "not_attended",
-      "day2_status": "not_attended",
-      "created_at": "2026-09-17T07:23:06.578Z",
-      "day1_time": null,
-      "day2_time": null,
-      "attendance_status": "not_attended"
-    },
-    {
-      "student_id": "P-2026-0059",
-      "full_name": "BASAS, LEA C.",
-      "department": "College of Social Sciences",
-      "year_level": "1st Year",
-      "program_section": "AB-POLSCI 1-A",
-      "ticket_code": "URS-38082",
-      "payment_status": "unpaid",
-      "day1_status": "not_attended",
-      "day2_status": "not_attended",
-      "created_at": "2026-09-17T07:20:12.117Z",
-      "day1_time": null,
-      "day2_time": null,
-      "attendance_status": "not_attended"
-    },
     {
       "student_id": "P2026-0151",
       "full_name": "Tongohan, Leea Koreean Anne",
@@ -5032,6 +4979,22 @@
       "attendance_status": "not_attended"
     },
     {
+      "student_id": "P2025-0235",
+      "full_name": "Magno, Jhon Michael C.",
+      "department": "College of Business",
+      "year_level": "2nd Year",
+      "program_section": "BSBA 2-B",
+      "ticket_code": "URS-27983",
+      "payment_status": "paid",
+      "day1_status": "not_attended",
+      "day2_status": "not_attended",
+      "created_at": "2026-09-08T12:11:08.827Z",
+      "id": "REG-1788869468884",
+      "day1_time": null,
+      "day2_time": null,
+      "attendance_status": "not_attended"
+    },
+    {
       "student_id": "P2026-0390",
       "full_name": "Eneria, Izyle G.",
       "department": "College of Business",
@@ -7128,6 +7091,22 @@
       "day2_status": "not_attended",
       "created_at": "2026-09-09T04:31:03.658Z",
       "id": "REG-1788928263838",
+      "day1_time": null,
+      "day2_time": null,
+      "attendance_status": "not_attended"
+    },
+    {
+      "student_id": "P2026-0606",
+      "full_name": "PARAGAS, WILQUINSON CARL P.",
+      "department": "College of Education",
+      "year_level": "1st Year",
+      "program_section": "BSE-ENG 1B",
+      "ticket_code": "URS-31495",
+      "payment_status": "paid",
+      "day1_status": "not_attended",
+      "day2_status": "not_attended",
+      "created_at": "2026-09-09T04:32:19.316Z",
+      "id": "REG-1788928339325",
       "day1_time": null,
       "day2_time": null,
       "attendance_status": "not_attended"
@@ -9869,6 +9848,22 @@
       "id": "REG-1788956489299"
     },
     {
+      "student_id": "2026-007499",
+      "full_name": "Caluma, Ma. Nicole T.",
+      "department": "College of Business",
+      "year_level": "1st Year",
+      "program_section": "BSBA FM 1-B",
+      "ticket_code": "URS-85970",
+      "payment_status": "unpaid",
+      "day1_status": "not_attended",
+      "day2_status": "not_attended",
+      "created_at": "2026-09-09T12:23:05.988Z",
+      "id": "REG-1788956586201",
+      "day1_time": null,
+      "day2_time": null,
+      "attendance_status": "not_attended"
+    },
+    {
       "student_id": "P2026-0468",
       "full_name": "MATELA, CHLOE JHANEL S.",
       "department": "College of Business",
@@ -11475,7 +11470,7 @@
       "attendance_status": "not_attended"
     },
     {
-      "student_id": "P2025-0451",
+      "student_id": "P2026-0451",
       "full_name": "CABRERA, HAZEL ROSE DL.",
       "department": "College of Social Sciences",
       "year_level": "2nd Year",
@@ -13126,7 +13121,7 @@
       "attendance_status": "not_attended"
     },
     {
-      "student_id": "P2025-0423",
+      "student_id": "2025-0423",
       "full_name": "Mahusay, Emalyn M.",
       "department": "College of Business",
       "year_level": "2nd Year",
@@ -14496,21 +14491,6 @@
       "attendance_status": "not_attended"
     },
     {
-      "student_id": "P2026-0451",
-      "full_name": "MARANAN, SAME GILLIAN L.",
-      "department": "College of Business",
-      "year_level": "1st Year",
-      "program_section": "BSBA 1-B",
-      "ticket_code": "URS-31091",
-      "payment_status": "unpaid",
-      "day1_status": "not_attended",
-      "day2_status": "not_attended",
-      "created_at": "2026-09-16T05:57:47.892Z",
-      "day1_time": null,
-      "day2_time": null,
-      "attendance_status": "not_attended"
-    },
-    {
       "student_id": "P2023-00437",
       "full_name": "Ancheta, Sonny R.",
       "department": "College of Business",
@@ -15621,43 +15601,64 @@
       "attendance_status": "not_attended"
     },
     {
-      "student_id": "P2026-0606",
-      "full_name": "PARAGAS, WILQUINSON CARL P.",
-      "department": "College of Education",
+      "student_id": "P-2026-0059",
+      "full_name": "BASAS, LEA C.",
+      "department": "College of Social Sciences",
       "year_level": "1st Year",
-      "program_section": "BSE-ENG 1B",
-      "ticket_code": "URS-31495",
-      "payment_status": "paid",
+      "program_section": "AB-POLSCI 1-A",
+      "ticket_code": "URS-38082",
+      "payment_status": "unpaid",
       "day1_status": "not_attended",
       "day2_status": "not_attended",
-      "created_at": "2026-09-09T04:32:19.316Z",
-      "id": "REG-1788928339325",
+      "created_at": "2026-09-17T07:20:12.117Z",
+      "day1_time": null,
+      "day2_time": null,
+      "attendance_status": "not_attended"
+    },
+    {
+      "student_id": "2026-0075",
+      "full_name": "Altamirano, Riz Bien H.",
+      "department": "College of Social Sciences",
+      "year_level": "1st Year",
+      "program_section": "AB-POLSCI 1-A",
+      "ticket_code": "URS-60634",
+      "payment_status": "unpaid",
+      "day1_status": "not_attended",
+      "day2_status": "not_attended",
+      "created_at": "2026-09-17T07:23:06.578Z",
+      "day1_time": null,
+      "day2_time": null,
+      "attendance_status": "not_attended"
+    },
+    {
+      "student_id": "P2026-0066",
+      "full_name": "ARCAÑO, Queen V.",
+      "department": "College of Social Sciences",
+      "year_level": "1st Year",
+      "program_section": "AB-POLSCI 1-A",
+      "ticket_code": "URS-82029",
+      "payment_status": "unpaid",
+      "day1_status": "not_attended",
+      "day2_status": "not_attended",
+      "created_at": "2026-09-17T07:37:46.444Z",
+      "day1_time": null,
+      "day2_time": null,
+      "attendance_status": "not_attended"
+    },
+    {
+      "student_id": "P2026-0079",
+      "full_name": "Ternate, Lance Terrence C.",
+      "department": "College of Social Sciences",
+      "year_level": "1st Year",
+      "program_section": "AB-POLSCI 1-A",
+      "ticket_code": "URS-10988",
+      "payment_status": "unpaid",
+      "day1_status": "not_attended",
+      "day2_status": "not_attended",
+      "created_at": "2026-09-17T07:30:32.318Z",
       "day1_time": null,
       "day2_time": null,
       "attendance_status": "not_attended"
     }
-  ],
-  "activityLog": [
-    {
-      "id": "log_dedup_1789632726624",
-      "type": "SYNC",
-      "title": "Masterlist Deduplication Completed",
-      "message": "System purged 4 duplicate registrations (URS-38720, URS-39776, URS-76655, URS-85970). Preserved all 992 unique original attendee records and paid statuses.",
-      "actor": "System Admin",
-      "device": "Admin Cloud Engine",
-      "department": null,
-      "ticket_code": null,
-      "timestamp": "2026-09-17T08:12:06.624Z",
-      "server_time": "2026-09-17T08:12:07.986Z"
-    }
-  ],
-  "registrationLocked": false,
-  "latestPing": null,
-  "deletedCodes": [
-    "URS-38720",
-    "URS-39776",
-    "URS-76655",
-    "URS-85970",
-    "URS-49680"
   ]
 }
