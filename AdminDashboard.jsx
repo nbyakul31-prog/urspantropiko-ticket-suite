@@ -279,6 +279,50 @@ export default function AdminDashboard({
     }
   };
 
+  const handleAutoCleanDuplicates = () => {
+    const idMap = new Map();
+    const nameMap = new Map();
+    tickets.forEach(t => {
+      const id = (t.student_id || '').trim().toLowerCase();
+      const name = (t.full_name || '').trim().toLowerCase();
+      if (id) {
+        if (!idMap.has(id)) idMap.set(id, []);
+        idMap.get(id).push(t);
+      }
+      if (name) {
+        if (!nameMap.has(name)) nameMap.set(name, []);
+        nameMap.get(name).push(t);
+      }
+    });
+
+    const dupesSet = new Set();
+    const processGroup = (list) => {
+      if (list.length <= 1) return;
+      const sorted = [...list].sort((a, b) => {
+        if (a.payment_status === 'paid' && b.payment_status !== 'paid') return -1;
+        if (b.payment_status === 'paid' && a.payment_status !== 'paid') return 1;
+        const aAtt = (a.day1_status === 'attended' || a.day2_status === 'attended') ? 1 : 0;
+        const bAtt = (b.day1_status === 'attended' || b.day2_status === 'attended') ? 1 : 0;
+        if (aAtt !== bAtt) return bAtt - aAtt;
+        return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+      });
+      for (let i = 1; i < sorted.length; i++) {
+        dupesSet.add(sorted[i].ticket_code);
+      }
+    };
+
+    idMap.forEach(list => processGroup(list));
+    nameMap.forEach(list => processGroup(list));
+
+    if (dupesSet.size === 0) {
+      alert('🎉 Masterlist is already clean! No duplicate registrations detected.');
+      return;
+    }
+
+    setSelectedTicketCodes(dupesSet);
+    setShowBatchDeleteModal(true);
+  };
+
   const [selectedDepartment, setSelectedDepartment] = useState('ALL');
   const [selectedSection, setSelectedSection] = useState('ALL');
   const [selectedYearLevel, setSelectedYearLevel] = useState('ALL');
@@ -1514,6 +1558,25 @@ export default function AdminDashboard({
                 ⚠️ {showDuplicatesOnly ? 'Showing Duplicates' : 'Filter Duplicates'}
                 <span className="dup-count-badge">{duplicateAttendeesCount}</span>
               </motion.button>
+
+              {duplicateAttendeesCount > 0 && (
+                <motion.button
+                  type="button"
+                  className="btn-dup-filter"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(220, 38, 38, 0.35))',
+                    border: '1.5px solid #EF4444',
+                    color: '#FCA5A5',
+                    fontWeight: '600'
+                  }}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleAutoCleanDuplicates}
+                  title="Automatically purge redundant duplicates and retain verified original entries"
+                >
+                  🧹 Auto-Clean Duplicates (Keep Originals)
+                </motion.button>
+              )}
 
               {/* Group by College Divider Toggle */}
               <motion.button
