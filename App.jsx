@@ -582,8 +582,8 @@ export default function App() {
           union.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
           updated = union.slice(0, 1000);
 
-          // If cold server returned empty but client has logs, warm the server in background
-          if (logUpdate.logs.length === 0 && updated.length > 0) {
+          // If cold server returned empty but client has logs, warm the server in background (Admins only)
+          if (isAdminAuthed && logUpdate.logs.length === 0 && updated.length > 0) {
             fetch('/api/sync', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
