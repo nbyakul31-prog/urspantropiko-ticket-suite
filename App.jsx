@@ -1118,6 +1118,45 @@ export default function App() {
     setPendingRoute(null);
   };
 
+  const handleImportBackup = (importedTickets, importedLogs = [], locked = null) => {
+    let countTickets = 0;
+    let countLogs = 0;
+    if (Array.isArray(importedTickets) && importedTickets.length > 0) {
+      const valid = importedTickets.filter(isRealAttendee).map(normalizeTicket).filter(Boolean);
+      countTickets = valid.length;
+      setTickets(prev => {
+        const map = new Map();
+        (prev || []).forEach(t => { if (t && t.ticket_code) map.set(t.ticket_code, t); });
+        valid.forEach(t => {
+          if (t && t.ticket_code) {
+            const existing = map.get(t.ticket_code);
+            map.set(t.ticket_code, { ...(existing || {}), ...t });
+          }
+        });
+        const merged = Array.from(map.values());
+        saveStoredTickets(merged);
+        broadcastCloudUpdate(merged);
+        return merged;
+      });
+    }
+    if (Array.isArray(importedLogs) && importedLogs.length > 0) {
+      countLogs = importedLogs.length;
+      setActivityLog(prev => {
+        const map = new Map();
+        (prev || []).forEach(l => { if (l && l.id) map.set(l.id, l); });
+        importedLogs.forEach(l => { if (l && l.id) map.set(l.id, l); });
+        const merged = Array.from(map.values()).sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0)).slice(0, 1000);
+        try { localStorage.setItem('ursp_activity_log_v1', JSON.stringify(merged)); } catch(e) {}
+        return merged;
+      });
+    }
+    if (typeof locked === 'boolean') {
+      setRegistrationLocked(locked);
+      try { localStorage.setItem('ursp_registration_locked', String(locked)); } catch(e) {}
+    }
+    return { success: true, countTickets, countLogs };
+  };
+
   const handleLockAdmin = () => {
     setIsAdminAuthed(false);
     try {
@@ -1333,6 +1372,7 @@ export default function App() {
               activityLog={activityLog}
               onDeleteLogs={handleDeleteLogs}
               onClearAllLogs={handleClearAllLogs}
+              onImportBackup={handleImportBackup}
             />
           </div>
         )}

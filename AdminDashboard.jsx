@@ -231,8 +231,15 @@ export default function AdminDashboard({
   eventLogo = null,
   activityLog = [],
   onDeleteLogs,
-  onClearAllLogs
+  onClearAllLogs,
+  onImportBackup = null
 }) {
+  const [showMigrationModal, setShowMigrationModal] = useState(false);
+  const [migrationUrl, setMigrationUrl] = useState('https://urspantropiko-ticket-suite.vercel.app/api/sync');
+  const [migrationLoading, setMigrationLoading] = useState(false);
+  const [migrationFeedback, setMigrationFeedback] = useState(null);
+  const fileInputRef = useRef(null);
+
   const [selectedTicketCodes, setSelectedTicketCodes] = useState(new Set());
   const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false);
   const [batchDeletePassword, setBatchDeletePassword] = useState('');
@@ -558,6 +565,103 @@ export default function AdminDashboard({
       }).format(new Date()) : null;
       onAdmitStudent(ticketCode, day, timeNow);
     }
+  };
+
+  // Cloud Migration & Backup Handlers
+  const handleDirectCloudPull = async () => {
+    if (!migrationUrl.trim()) return;
+    setMigrationLoading(true);
+    setMigrationFeedback(null);
+    try {
+      const res = await fetch(migrationUrl.trim(), { cache: 'no-cache' });
+      if (!res.ok) {
+        throw new Error(`Server returned HTTP ${res.status}`);
+      }
+      const json = await res.json();
+      const attendees = json.data || json.attendees || json.tickets || [];
+      const logs = json.activityLog || json.logs || [];
+      const locked = typeof json.registrationLocked === 'boolean' ? json.registrationLocked : null;
+
+      if (!Array.isArray(attendees) || (attendees.length === 0 && logs.length === 0)) {
+        setMigrationFeedback({
+          type: 'warning',
+          message: 'Target server responded, but returned 0 attendee records in memory. If your attendees are stored in your previous browser session, please use the 1-click JSON Backup Export below.'
+        });
+        return;
+      }
+
+      if (onImportBackup) {
+        const result = onImportBackup(attendees, logs, locked);
+        setMigrationFeedback({
+          type: 'success',
+          message: `🎉 Successfully imported and merged ${result.countTickets} attendees and ${result.countLogs} activity logs into this deployment!`
+        });
+      }
+    } catch (err) {
+      setMigrationFeedback({
+        type: 'error',
+        message: `Failed to connect to ${migrationUrl}: ${err.message}. If the old domain is blocked or offline, use the 1-click JSON Backup option.`
+      });
+    } finally {
+      setMigrationLoading(false);
+    }
+  };
+
+  const handleExportJsonBackup = () => {
+    try {
+      const backupData = {
+        exportedAt: new Date().toISOString(),
+        version: 1,
+        totalAttendees: tickets.length,
+        registrationLocked: registrationLocked,
+        attendees: tickets,
+        activityLog: activityLog
+      };
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `urspantropiko_masterlist_backup_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setMigrationFeedback({
+        type: 'success',
+        message: `📦 Downloaded full JSON backup of ${tickets.length} attendees and ${activityLog.length} logs to your computer!`
+      });
+    } catch (e) {
+      alert('Could not export backup: ' + e.message);
+    }
+  };
+
+  const handleImportJsonFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target.result);
+        const attendees = parsed.attendees || parsed.tickets || parsed.data || (Array.isArray(parsed) ? parsed : []);
+        const logs = parsed.activityLog || parsed.logs || [];
+        const locked = typeof parsed.registrationLocked === 'boolean' ? parsed.registrationLocked : null;
+
+        if (onImportBackup) {
+          const result = onImportBackup(attendees, logs, locked);
+          setMigrationFeedback({
+            type: 'success',
+            message: `🎉 Restored ${result.countTickets} attendees and ${result.countLogs} activity logs from JSON backup file!`
+          });
+        }
+      } catch (err) {
+        setMigrationFeedback({
+          type: 'error',
+          message: 'Invalid JSON backup file. Please select a valid backup.'
+        });
+      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+    reader.readAsText(file);
   };
 
   // Download Excel (.xls) - Grouped by Collegiate Department & Strictly Alphabetized by Surname
@@ -1004,9 +1108,74 @@ export default function AdminDashboard({
             >
               📲 Master Usher QR
             </motion.button>
+            <motion.button
+              className="btn-hero-action"
+              style={{
+                background: 'linear-gradient(135deg, #4F46E5, #7C3AED)',
+                color: '#FFFFFF',
+                border: '1px solid rgba(167, 139, 250, 0.4)',
+                boxShadow: '0 4px 15px rgba(99, 102, 241, 0.35)',
+                fontWeight: '800'
+              }}
+              whileHover={{ scale: 1.04, y: -1 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => { setMigrationFeedback(null); setShowMigrationModal(true); }}
+            >
+              🔄 Cloud Migration &amp; Backup Hub
+            </motion.button>
           </div>
         </div>
       </motion.section>
+
+      {/* 0-Data Alert Banner for New Deployments */}
+      {tickets.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{
+            margin: '0 0 24px 0',
+            padding: '18px 24px',
+            background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.25), rgba(124, 58, 237, 0.25))',
+            border: '2px solid rgba(129, 140, 248, 0.6)',
+            borderRadius: '16px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px',
+            boxShadow: '0 8px 24px rgba(79, 70, 229, 0.25)'
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: '800', color: '#FFFFFF', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>📥</span>
+              <span>New Domain Deployment Detected — Ready to Import Masterlist</span>
+            </div>
+            <div style={{ color: '#C7D2FE', fontSize: '13px', marginTop: '4px' }}>
+              Your new deployment currently has 0 local tickets. You can pull all attendee records and activity logs directly from your previous deployment in 1 click.
+            </div>
+          </div>
+          <button
+            onClick={() => { setMigrationFeedback(null); setShowMigrationModal(true); }}
+            style={{
+              background: '#4F46E5',
+              color: '#FFFFFF',
+              fontWeight: '800',
+              padding: '10px 20px',
+              borderRadius: '10px',
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 4px 14px rgba(79, 70, 229, 0.4)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            <span>⚡</span>
+            <span>Import / Sync Records Now</span>
+          </button>
+        </motion.div>
+      )}
 
       {/* Animated Motion Divider */}
       <motion.div
@@ -3286,6 +3455,239 @@ export default function AdminDashboard({
                 </motion.button>
               </div>
             </form>
+          </motion.div>
+        </div>
+      )}
+
+          {/* Cloud Migration & Cross-Deployment Backup Modal */}
+      {showMigrationModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(12px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            padding: '20px'
+          }}
+          onClick={() => setShowMigrationModal(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: 20 }}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'linear-gradient(135deg, #0F172A 0%, #1E1B4B 100%)',
+              border: '2px solid #6366F1',
+              borderRadius: '24px',
+              padding: '30px',
+              maxWidth: '560px',
+              width: '100%',
+              boxShadow: '0 25px 65px rgba(99, 102, 241, 0.4)',
+              color: '#FFFFFF',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '24px' }}>🔄</span>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: '#FFFFFF' }}>
+                  Cloud Migration &amp; Backup Hub
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowMigrationModal(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: 'none',
+                  color: '#94A3B8',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ color: '#94A3B8', fontSize: '0.85rem', lineHeight: '1.5', marginBottom: '20px' }}>
+              Safely transfer all attendee masterlist records, payment verification, and audit logs between deployments or download an offline archive.
+            </p>
+
+            {/* Status Feedback Banner */}
+            {migrationFeedback && (
+              <div style={{
+                padding: '12px 16px',
+                borderRadius: '12px',
+                marginBottom: '18px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                background: migrationFeedback.type === 'success' ? 'rgba(16, 185, 129, 0.2)' : migrationFeedback.type === 'warning' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                border: `1px solid ${migrationFeedback.type === 'success' ? '#10B981' : migrationFeedback.type === 'warning' ? '#F59E0B' : '#EF4444'}`,
+                color: migrationFeedback.type === 'success' ? '#6EE7B7' : migrationFeedback.type === 'warning' ? '#FDE68A' : '#FCA5A5'
+              }}>
+                {migrationFeedback.message}
+              </div>
+            )}
+
+            {/* Method 1: Pull from Previous Cloud URL */}
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: '16px',
+              padding: '18px',
+              marginBottom: '18px'
+            }}>
+              <div style={{ fontWeight: '800', color: '#38BDF8', fontSize: '0.95rem', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>⚡ Method 1:</span> Direct Pull from Old Deployment
+              </div>
+              <p style={{ color: '#94A3B8', fontSize: '0.8rem', margin: '0 0 12px 0' }}>
+                Fetch data from the live API of your old or backup Vercel project:
+              </p>
+
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                <input
+                  type="text"
+                  value={migrationUrl}
+                  onChange={(e) => setMigrationUrl(e.target.value)}
+                  placeholder="https://.../api/sync"
+                  style={{
+                    flex: 1,
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    background: 'rgba(0, 0, 0, 0.4)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    color: '#FFF',
+                    fontSize: '0.85rem'
+                  }}
+                />
+                <button
+                  onClick={handleDirectCloudPull}
+                  disabled={migrationLoading}
+                  style={{
+                    background: '#38BDF8',
+                    color: '#000',
+                    fontWeight: '800',
+                    padding: '10px 18px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {migrationLoading ? '⏳ Pulling...' : '⚡ Pull & Merge'}
+                </button>
+              </div>
+
+              {/* Quick Preset Buttons */}
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.75rem', color: '#64748B' }}>Presets:</span>
+                <button
+                  type="button"
+                  onClick={() => setMigrationUrl('https://urspantropiko-ticket-suite.vercel.app/api/sync')}
+                  style={{ background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38BDF8', fontSize: '0.72rem', padding: '3px 8px', borderRadius: '6px', cursor: 'pointer' }}
+                >
+                  Original Domain
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMigrationUrl('https://urspantropiko-ticket-suite-fsrc16m8n-noir-80a7.vercel.app/api/sync')}
+                  style={{ background: 'rgba(168, 85, 247, 0.1)', border: '1px solid rgba(168, 85, 247, 0.3)', color: '#C084FC', fontSize: '0.72rem', padding: '3px 8px', borderRadius: '6px', cursor: 'pointer' }}
+                >
+                  Backup Deployment Hash
+                </button>
+              </div>
+            </div>
+
+            {/* Method 2: Offline JSON Backup & Restore */}
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: '16px',
+              padding: '18px'
+            }}>
+              <div style={{ fontWeight: '800', color: '#34D399', fontSize: '0.95rem', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>📦 Method 2:</span> 1-Click JSON Backup &amp; Restore
+              </div>
+              <p style={{ color: '#94A3B8', fontSize: '0.8rem', margin: '0 0 12px 0' }}>
+                Download a complete backup from your old site, then restore it here with 100% guarantee across browsers and domains:
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <button
+                  onClick={handleExportJsonBackup}
+                  style={{
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    border: '1px solid #10B981',
+                    color: '#6EE7B7',
+                    fontWeight: '800',
+                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <span style={{ fontSize: '18px' }}>💾</span>
+                  <span style={{ fontSize: '0.85rem' }}>Export Backup File</span>
+                  <span style={{ fontSize: '0.7rem', color: '#A7F3D0', fontWeight: '400' }}>Save ({tickets.length}) attendees</span>
+                </button>
+
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    background: 'rgba(99, 102, 241, 0.15)',
+                    border: '1px solid #6366F1',
+                    color: '#A5B4FC',
+                    fontWeight: '800',
+                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <span style={{ fontSize: '18px' }}>📥</span>
+                  <span style={{ fontSize: '0.85rem' }}>Restore Backup File</span>
+                  <span style={{ fontSize: '0.7rem', color: '#C7D2FE', fontWeight: '400' }}>Upload .json file</span>
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  onChange={handleImportJsonFile}
+                  style={{ display: 'none' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ marginTop: '20px', textAlign: 'center' }}>
+              <button
+                onClick={() => setShowMigrationModal(false)}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: '#94A3B8',
+                  padding: '8px 20px',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  fontSize: '0.85rem'
+                }}
+              >
+                Close Hub
+              </button>
+            </div>
           </motion.div>
         </div>
       )}
